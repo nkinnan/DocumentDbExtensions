@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>DocumentDbExtensions</id>
+    <version>1.0.0</version>
+    <authors>Nick Kinnan</authors>
+    <owners>Nick Kinnan</owners>
+    <licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl>
+    <projectUrl>https://github.com/nkinnan/DocumentDbExtensions</projectUrl>
+    <iconUrl>http://ICON_URL_HERE_OR_DELETE_THIS_LINE</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>DocumentDbExtensions</description>
+    <releaseNotes>Initial release.</releaseNotes>
+    <copyright>Copyright 2017</copyright>
+    <tags>Azure DocumentDB CosmosDB</tags>
+    <dependencies>
+      <!--<dependency id="SampleDependency" version="1.0" />-->
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.dll" target="lib\net45\DocumentDbExtensions.dll" />
+    <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.dll" target="lib\net45\DocumentDbExtensions.pdb" />
+    <file src="README.md" target="README.md" />
+    <!--<file src="source code or whatever" target="content\whatever">-->
+  </files>
+</package>
