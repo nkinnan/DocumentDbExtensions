@@ -1,0 +1,631 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>DocumentDbExtensions</name>
+    </assembly>
+    <members>
+        <member name="T:Microsoft.Azure.Documents.DateTimeDocumentDbJsonConverter">
+             <summary>
+             ALL DateTime or DateTimeOffset properties in your DocumentDB document type class MUST be decorated with this attribute
+             in order for the DateTime query expression translator to work properly.
+             
+             If your DateTime / DateTimeOffset properties are not formatted in DocumentDB identically to the format the expression 
+             translater generates, then the string comparisons will not work properly when executed on the DocumentDB server.
+             
+             Don't forget to use "new Date().toISOString()" which generates the same string format in your sprocs and triggers as well.
+            
+             -- This is actually pulled out of Newtonsoft.Json.dll via ILSpy and then slightly modified. --
+             
+             The original has the ability to set "convert to universal time" and a custom format string, but DocumentDB doesn't allow access to this
+             since we can only decorate properties with [JsonConvert(typeof(...))] and cannot pass in a properly configured instance of the converter.
+             
+             Thus, we wrote our own which is "already configured" to do what we want, so it doesn't matter if DocDB instantiates it.
+             
+             There is a feature request to make modifying serialization easier with DocDB that you can vote on here: 
+                 https://feedback.azure.com/forums/263030-documentdb/suggestions/6422364-allow-me-to-set-jsonserializersettings
+             </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DateTimeDocumentDbJsonConverter.CanConvert(System.Type)">
+            <summary>
+            Determines whether this instance can convert the specified object type.
+            </summary>
+            <param name="objectType">Type of the object.</param>
+            <returns>
+                <c>true</c> if this instance can convert the specified object type; otherwise, <c>false</c>.
+            </returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DateTimeDocumentDbJsonConverter.WriteJson(Newtonsoft.Json.JsonWriter,System.Object,Newtonsoft.Json.JsonSerializer)">
+            <summary>
+            Writes the JSON representation of the object.
+            </summary>
+            <param name="writer">The <see cref="T:Newtonsoft.Json.JsonWriter" /> to write to.</param>
+            <param name="value">The value.</param>
+            <param name="serializer">The calling serializer.</param>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DateTimeDocumentDbJsonConverter.ReadJson(Newtonsoft.Json.JsonReader,System.Type,System.Object,Newtonsoft.Json.JsonSerializer)">
+            <summary>
+            Reads the JSON representation of the object.
+            </summary>
+            <param name="reader">The <see cref="T:Newtonsoft.Json.JsonReader" /> to read from.</param>
+            <param name="objectType">Type of the object.</param>
+            <param name="existingValue">The existing value of object being read.</param>
+            <param name="serializer">The calling serializer.</param>
+            <returns>The object value.</returns>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.DateTimeFormatExtensions">
+            <summary>
+            Extensions to DateTime and DateTimeOffset.  These extensions output ISO 8601 formatted strings in the same format 
+            as DocumentDB stored procedures, triggers, etc will get if they call (in JavaScript) "new Date().toISOString()"
+            </summary>
+        </member>
+        <member name="F:Microsoft.Azure.Documents.DateTimeFormatExtensions.FormatString">
+            <summary>
+            Matches what DocumentDB triggers/sprocs generate with the JavaScript: new Date().toISOString();
+            AKA - ISO 8601 format (or, one variant of it, with a particular precision, etc.)
+            A real example of a trigger generated value: "2016-02-17T23:12:46.959Z"
+            </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DateTimeFormatExtensions.ToDocDbFormat(System.Nullable{System.DateTime})">
+            <summary>
+            Output a string in ISO 8601 format, compatible with DocumentDB triggers/sprocs that call "new Date().toISOString();"
+            </summary>
+            <param name="dt">"this"</param>
+            <returns>The string representation in ISO 8601 format.</returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DateTimeFormatExtensions.ToDocDbFormat(System.DateTime)">
+            <summary>
+            Output a string in ISO 8601 format, compatible with DocumentDB triggers/sprocs that call "new Date().toISOString();"
+            </summary>
+            <param name="dt">"this"</param>
+            <returns>The string representation in ISO 8601 format.</returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DateTimeFormatExtensions.ToDocDbFormat(System.Nullable{System.DateTimeOffset})">
+            <summary>
+            Output a string in ISO 8601 format, compatible with DocumentDB triggers/sprocs that call "new Date().toISOString();"
+            </summary>
+            <param name="dt">"this"</param>
+            <returns>The string representation in ISO 8601 format.</returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DateTimeFormatExtensions.ToDocDbFormat(System.DateTimeOffset)">
+            <summary>
+            Output a string in ISO 8601 format, compatible with DocumentDB triggers/sprocs that call "new Date().toISOString();"
+            </summary>
+            <param name="dto">"this"</param>
+            <returns>The string representation in ISO 8601 format.</returns>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.ShouldRetry">
+            <summary>
+            If you wish to override the default retry logic, implement this prototype and pass it into the method call, or
+            set DocumentDbExtensions.DefaultShouldRetryLogic
+            
+            You may wish to use this functionality, for example, if you have a sproc which is not "continuable" but instead
+            throws a specific error that you can recognize as "entire transaction rolled back, please retry executing the entire
+            call".  In that case, your ShouldRetry logic can pick up on that and retry the call in its entirety.  (Its 
+            recommended that your sprocs should instead return "how far they got" and be called a second time with those 
+            inputs removed in "continuation mode" course.)
+            
+            If your custom ShouldRetry logic can't understand the response, you should throw DocumentDbUnexpectedResponse.
+            If your custom ShouldRetry logic can understand the response but it is not retriable, you should throw DocumentDbNonRetriableResponse.
+            If you throw any other exception type, that exception will be wrapped in DocumentDbRetryHandlerError.
+            </summary>
+            <param name="exception">The DocumentDB client exception to interpret and decide if you want to retry.</param>
+            <returns>
+            NULL for "don't retry" in which case a DocumentDbRetriesExceeded exception will be thrown, wrapping the original exception,
+            otherwise the TimeSpan to wait for before making the next attempt, normally retrieved from the DocumentDB response.
+            </returns>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.EnumerationExceptionHandler">
+            <summary>
+            When intercepting a query, or using one of the reliable query execution methods, results are retrieved in "pages".  It is 
+            sometimes not desirable to propagate exceptions back out to the caller who is enumerating results, if a failure happens on
+            "get next page".
+            
+            For example if you pass an intercepted IQueryable back to OData and propagate an exception out, it will take down the entire 
+            w3wp.exe process :D
+            
+            So, by passing an implementation of this delegate you may ignore, log, or propagate the exception as you choose.
+            
+            If you return true, the exception will be re-thrown from its original context, and if you return false then a partial result 
+            set will be returned.
+            </summary>
+            <param name="exception"></param>
+            <returns>
+            Whether the exception was handled.  If false, the original exception will be rethrown from its original context.  If true, the exception 
+            will be swallowed on the assumption that you have logged or otherwise handled it and a partial (or empty) result set will be returned.
+            </returns>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.FeedResponseHandler">
+            <summary>
+            When intercepting a query, or using one of the reliable query execution methods, results are retrieved in "pages".  While
+            all paging and enumeration is handled internally, you may wish to have access to certain interesting bits of information from 
+            each DocumentDB FeedResponse as it comes through "behind the scenes".  Things like resource usage for example may be useful 
+            to log.
+            </summary>
+            <param name="feedResponse"></param>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.DocumentDbExtensions">
+            <summary>
+            Extensions for the DocumentDB Client which provide:
+            * DocumentDB IQueryable interception / translation in order to allow use of DateTime/Offset types in where clauses.
+                - Don't forget to mark all of your DateTime or DateTimeOffset properties with the DocumentDbDateTimeJsonConverter attribute!
+            * Reliable execution with retries and automatic paging/streaming for DocumentDB IQueryables.
+            * Reliable execution with retries for any DocumentDB Client method.
+            * Both syncronous and asyncronous implementations of all methods.
+            </summary>
+        </member>
+        <member name="F:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultMaxRetryCount">
+            <summary>
+            The default maximum number of DocumentDB Client retries to execute before giving up if not overridden in the method call.
+            
+            If you set this, it will apply to all future calls into DocumentDbExtensions which do not override the value.
+            </summary>
+        </member>
+        <member name="F:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultMaxRetryTime">
+            <summary>
+            The default maximum amount of time to use for of DocumentDB Client retries before giving up, if not overridden in the method call.
+            
+            If you set this, it will apply to all future calls into DocumentDbExtensions which do not override the value.
+            </summary>
+        </member>
+        <member name="F:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultShouldRetryLogic">
+            <summary>
+            This implements the default retry logic to use if not overridden in the method call.  
+            
+            If you set this, it will apply to all future calls into DocumentDbExtensions which do not override the value.
+            </summary>
+        </member>
+        <member name="F:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultEnumerationExceptionHandler">
+            <summary>
+            This implements the default exception handling logic on IQueryable enumeration/paging errors to use, if not overridden in the method call.  
+            
+            If you set this, it will apply to all future calls into DocumentDbExtensions which do not override the value.
+            </summary>
+        </member>
+        <member name="F:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultFeedResponseHandler">
+            <summary>
+            This implements the default feed response handling logic on IQueryable result paging, if not overridden in the method call.  
+            
+            If you set this, it will apply to all future calls into DocumentDbExtensions which do not override the value.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultShouldRetryLogicImplementation(System.Exception)">
+            <summary>
+            The implementation of the default ShouldRetry logic, this is assigned to "DefaultShouldRetry" by default.
+            </summary>
+            <param name="exception"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultEnumerationExceptionHandlerImplementation(System.Exception)">
+            <summary>
+            The implementation of the default EnumerationExceptionHandler logic, this is assigned to "DefaultEnumerationExceptionHandler" by default.
+            
+            This implementation will cause the caller to re-throw the exception from its original context which will be propagated back out to the code which is enumerating the results.
+            </summary>
+            <param name="exception"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultFeedResponseHandlerImplementation(Microsoft.Azure.Documents.FeedResponseType,Microsoft.Azure.Documents.IFeedResponse)">
+            <summary>
+            The implementation of the default FeedResponseHandler logic, this is assigned to "DefaultFeedResponseHandler" by default.
+            
+            This implementation does nothing.
+            </summary>
+            <param name="exception"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.UnwrapAggregates(System.Exception)">
+            <summary>
+            A helper method that you may use in any custom retry logic to unwrap aggregate exceptions into a list of exceptions.  
+            This is safe to call on a non-aggregate and also handles aggregate aggregates.
+            </summary>
+            <param name="exception"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.InterceptQuery``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            To gain the advantage of the query translator (allows you to use things like DateTime and DateTimeOffset in queries) plus
+            reliable execution, you must intercept the IQueryable returned by the DocumentDB Client by calling this method on it BEFORE 
+            you start adding things like ".Where(...)" or ".Select(...)" etc.
+            
+            Once the DocumentDB IQueryable is wrapped, you can use it just like any other standard IQueryable.  It will translate (some)
+            expressions that DocumentDB doesn't handle, and lazily enumerate with retries on each "page".  You do not need to call any 
+            of the query execution methods in this class on it afterward, everything is automatic once the IQueryable has been intercepted.
+            </summary>
+            <typeparam name="TElement"></typeparam>
+            <param name="underlyingQuery"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.ExecuteQueryWithContinuationAndRetry``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB query in the form of an IQueryable (Linq form) and return the results.
+            
+            It handles paging, continuation tokens, and retriable errors such as "too many requests" for you,
+            while aggregating all query results in-memory before returning.
+            
+            You don't need to use this if you have called InterceptQuery() on the IQueryable previously.
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="queryable"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.ExecuteQueryWithContinuationAndRetryAsync``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB query in the form of an IQueryable (Linq form) and return the results.
+            
+            It handles paging, continuation tokens, and retriable errors such as "too many requests" for you,
+            while aggregating all query results in-memory before returning.
+            
+            You don't need to use this if you have called InterceptQuery() on the IQueryable previously.
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="queryable"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.StreamQueryWithContinuationAndRetry``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB query in the form of an IQueryable (Linq form) and return the results.
+            
+            It handles paging, continuation tokens, and retriable errors such as "too many requests" for you,
+            while streaming query results out in chunks via IEnumerable / yield.
+            
+            You don't need to use this if you have called InterceptQuery() on the IQueryable previously.
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="queryable"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.ExecuteMethodWithRetry(System.Action,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            </summary>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.ExecuteMethodWithRetryAsync(System.Action,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            </summary>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.ExecuteMethodWithRetry``1(System.Func{``0},System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.ExecuteMethodWithRetryAsync``1(System.Func{``0},System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.ExecuteMethodWithRetry``1(System.Func{System.Threading.Tasks.Task{``0}},System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            
+            The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+            execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+            WithRetry method invocation time.
+            
+            Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.ExecuteMethodWithRetryAsync``1(System.Func{System.Threading.Tasks.Task{``0}},System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            
+            The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+            execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+            WithRetry method invocation time.
+            
+            Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.ExecuteMethodWithRetry(System.Func{System.Threading.Tasks.Task},System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            
+            The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+            execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+            WithRetry method invocation time.
+            
+            Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.ExecuteMethodWithRetryAsync(System.Func{System.Threading.Tasks.Task},System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            
+            The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+            execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+            WithRetry method invocation time.
+            
+            Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.DocumentDbRetriesExceeded">
+            <summary>
+            This exception type will be thrown when the retry logic hits maxTime or maxRetries.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbRetriesExceeded.#ctor(System.String,System.Exception)">
+            <summary>
+            The constructor.
+            </summary>
+            <param name="message"></param>
+            <param name="inner"></param>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.DocumentDbRetryHandlerError">
+            <summary>
+            This exception type will be thrown if the ShouldRetry logic itself throws.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbRetryHandlerError.#ctor(System.String,System.Exception)">
+            <summary>
+            The constructor.
+            </summary>
+            <param name="message"></param>
+            <param name="inner"></param>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.DocumentDbUnexpectedResponse">
+            <summary>
+            This exception type will be thrown if the default ShouldRetry logic encounters a response it can't understand (should not happen).
+            </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbUnexpectedResponse.#ctor(System.String,System.Exception)">
+            <summary>
+            The constructor.
+            </summary>
+            <param name="message"></param>
+            <param name="inner"></param>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.DocumentDbNonRetriableResponse">
+            <summary>
+            This exception type will be thrown if the default ShouldRetry logic encounters a response that is expected but non-retriable such as Conflict or NotFound.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbNonRetriableResponse.#ctor(System.String,System.Exception)">
+            <summary>
+            The constructor.
+            </summary>
+            <param name="message"></param>
+            <param name="inner"></param>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.FeedResponseType">
+            <summary>
+            FeedResponse callback type
+            </summary>
+            <typeparam name="T"></typeparam>
+        </member>
+        <!-- Badly formed XML comment ignored for member "T:Microsoft.Azure.Documents.FeedResponseWrapper`1" -->
+        <member name="T:Microsoft.Azure.Documents.InterceptingQuery`1">
+            <summary>
+            Allows evaluation of IQueryables to be "hooked" in conjunction with InterceptingQueryProvider.
+            </summary>
+            <typeparam name="TElement"></typeparam>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.InterceptingQueryProvider">
+            <summary>
+            Allows evaluation of IQueryables to be "hooked" in conjunction with InterceptingQuery.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslateExpressionVisitor.VisitBinary(System.Linq.Expressions.BinaryExpression)">
+            <summary>
+            This method will be called for every binary expression in the expression tree.  We evaluate the node and 
+            convert DateTime or DateTimeOffset comparisons into their string equivalents so they can execute properly
+            against DocumentDB, which uses JSON, which does not have a DateTime or DateTimeOffset type, only "number"
+            and "string".
+            </summary>
+            <param name="node"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslateExpressionVisitor.TranslateDateTimeToStringType(System.Linq.Expressions.Expression)">
+            <summary>
+            This converts a unary from DateTime/Offset(?) to string.  If it is a member access on root type being queried or one of its 
+            child types, we "lie" by fixing up the FieldInfo or PropertyInfo so DocDB "sees" it as a string property in the DB.  If the unary
+            is a member access on any other type we attempt to execute the unary and format the result as an ISO8601 string.  Constants and 
+            conditionals (conditionals needed because of some OData oddities) are similarly translated.  This enables the parent binary
+            expression to be re-written so that the DocumentDB IQueryable implementation will interpret it properly and allow use of various
+            formerly disallowed operations such as LessThan, etc. on DateTime/Offset(?) DB properties.
+            </summary>
+            <param name="node"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslateExpressionVisitor.VisitConstant(System.Linq.Expressions.ConstantExpression)">
+            <summary>
+            When using this translator with OData, those libraries may insert "non-standard" nodes which enable them to do constant parameterization.
+            This simply allows us to check whether that is happening and emit an error with instructions on how to make the two work together.
+            </summary>
+            <param name="node"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.Intercept``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            Begins interception of query evaluation, wraps the passed in IQueryable
+            </summary>
+            <typeparam name="TElement"></typeparam>
+            <param name="underlyingQuery"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.ExecuteQuery``1(System.Linq.Expressions.Expression)">
+            <summary>
+            Intercept Execute to add DocumentDB retry and continuation logic
+            </summary>
+            <typeparam name="TElement"></typeparam>
+            <param name="expression"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.Execute``1(System.Linq.Expressions.Expression)">
+            <summary>
+            Intercept execute to add DocumentDB retry logic
+            </summary>
+            <typeparam name="TResult"></typeparam>
+            <param name="expression"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.Execute(System.Linq.Expressions.Expression)">
+            <summary>
+            Intercept execute to add DocumentDB retry logic
+            </summary>
+            <param name="expression"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbReliableExecution.ExecuteQueryWithContinuationAndRetry``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB query in the form of an IQueryable (Linq form) and return the results.
+            
+            It handles paging, continuation tokens, and retriable errors such as "too many requests" for you,
+            while aggregating all query results in-memory before returning.
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="queryable"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbReliableExecution.StreamQueryWithContinuationAndRetry``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB query in the form of an IQueryable (Linq form) and return the results.
+            
+            It handles paging, continuation tokens, and retriable errors such as "too many requests" for you,
+            while streaming query results out in chunks via IEnumerable / yield.
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="queryable"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbReliableExecution.ExecuteMethodWithRetry(System.Action,System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            
+            The caller must explicitly wrap the call they want to make in a lambda.  This is so that WithRetry can 
+            execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+            WithRetry method invocation time.
+            
+            Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
+            </summary>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbReliableExecution.ExecuteMethodWithRetry``1(System.Func{``0},System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            
+            The caller must explicitly wrap the call they want to make in a lambda.  This is so that WithRetry can 
+            execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+            WithRetry method invocation time.
+            
+            Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbReliableExecution.ExecuteMethodWithRetry(System.Func{System.Threading.Tasks.Task},System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            
+            The caller must explicitly wrap the call they want to make in a lambda.  This is so that WithRetry can 
+            execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+            WithRetry method invocation time.
+            
+            Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbReliableExecution.ExecuteMethodWithRetry``1(System.Func{System.Threading.Tasks.Task{``0}},System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+            
+            The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+            execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+            WithRetry method invocation time.
+            
+            Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
+            </summary>
+            <typeparam name="R"></typeparam>
+            <param name="action"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+    </members>
+</doc>
