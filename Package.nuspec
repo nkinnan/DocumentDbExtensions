@@ -30,7 +30,7 @@ Using this library allows you to simply return a DocumentDB IQueryable to the Mi
   </metadata>
   <files>
     <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.dll" target="lib\net45\DocumentDbExtensions.dll" />
-    <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.dll" target="lib\net45\DocumentDbExtensions.pdb" />
+    <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.pdb" target="lib\net45\DocumentDbExtensions.pdb" />
     <file src="README.md" target="README.md" />
     <!--<file src="source code or whatever" target="content\whatever">-->
   </files>

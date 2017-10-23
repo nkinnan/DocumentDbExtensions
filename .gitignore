@@ -265,3 +265,6 @@ __pycache__/
 
 # nuget packaging exe
 nuget.exe
+
+# ignore obj directories
+obj
