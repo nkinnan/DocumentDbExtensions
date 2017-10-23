@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>DocumentDbExtensions</id>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <authors>Nick Kinnan</authors>
     <owners>Nick Kinnan</owners>
     <licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl>
@@ -29,8 +29,10 @@ Using this library allows you to simply return a DocumentDB IQueryable to the Mi
     </dependencies>
   </metadata>
   <files>
-    <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.dll" target="lib\net45\DocumentDbExtensions.dll" />
-    <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.pdb" target="lib\net45\DocumentDbExtensions.pdb" />
+    <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.dll" target="lib\net45\Debug\DocumentDbExtensions.dll" />
+    <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.pdb" target="lib\net45\Debug\DocumentDbExtensions.pdb" />
+    <file src="DocumentDbExtensions\bin\Release\DocumentDbExtensions.dll" target="lib\net45\Release\DocumentDbExtensions.dll" />
+    <file src="DocumentDbExtensions\bin\Release\DocumentDbExtensions.pdb" target="lib\net45\Release\DocumentDbExtensions.pdb" />
     <file src="README.md" target="README.md" />
     <!--<file src="source code or whatever" target="content\whatever">-->
   </files>
