@@ -10,6 +10,8 @@ namespace Microsoft.Azure.Documents
 {
     internal static class DocumentDbReliableExecution
     {
+        private const string BadQueryableMessage = "Queryable does not appear to be from DocumentDB, did you perhaps pass a queryable that was already intercepted by this library to an execute call which is meant for unwrapped DocumentDB queryables?  If so, you can simply call .ToArray() or equivalent since you already have a 'safe' wrapped queryable.  The main reason to use an un-wrapped DocumentDB queryable and then call one of the execute methods meant for bare DocumentDB queryables is to be able to get the results using an async Task<> since queryables do not support asyncronous execution.  Note however that this means results won't be paged/streamed in but fully streamed into memory before the async execute method returns.";
+
         /// <summary>
         /// This will execute a DocumentDB query in the form of an IQueryable (Linq form) and return the results.
         /// 
@@ -25,10 +27,6 @@ namespace Microsoft.Azure.Documents
         /// <returns></returns>
         public static async Task<IList<R>> ExecuteQueryWithContinuationAndRetry<R>(IQueryable<R> queryable, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
-            // todo: catch if someone passes in a wrapper queryable
-
-            feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
-
             IDocumentQuery<R> query = null;
             try
             {
@@ -36,8 +34,10 @@ namespace Microsoft.Azure.Documents
             }
             catch(Exception e)
             {
-                throw new ArgumentException("Queryable does not appear to be from DocumentDB, did you perhaps pass a queryable that was already intercepted by this library to an execute call which is meant for unwrapped DocumentDB queryables?  If so, you can simply call .ToArray() or equivalent since you already have a 'safe' wrapped queryable.  The main reason to use an un-wrapped DocumentDB queryable and then call one of the execute methods meant for bare DocumentDB queryables is to be able to get the results using an async Task<> since queryables do not support asyncronous execution.  Note however that this means results won't be paged/streamed in but fully streamed into memory before the async execute method returns.", e);
+                throw new ArgumentException(BadQueryableMessage, e);
             }
+
+            feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
 
             var allResults = new List<R>();
 
@@ -90,11 +90,17 @@ namespace Microsoft.Azure.Documents
         /// <returns></returns>
         public static IEnumerable<R> StreamQueryWithContinuationAndRetry<R>(IQueryable<R> queryable, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
-            // todo: catch if someone passes in a wrapper queryable
+            IDocumentQuery<R> query = null;
+            try
+            {
+                query = queryable.AsDocumentQuery();
+            }
+            catch (Exception e)
+            {
+                throw new ArgumentException(BadQueryableMessage, e);
+            }
 
             feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
-
-            var query = queryable.AsDocumentQuery();
 
             while (query.HasMoreResults)
             {
