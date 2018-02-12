@@ -6,12 +6,23 @@ namespace Microsoft.Azure.Documents
     /// <summary>
     /// FeedResponse callback type
     /// </summary>
-    /// <typeparam name="T"></typeparam>
     public enum FeedResponseType
     {
+        /// <summary>
+        /// Called before enumeration of results begins
+        /// </summary>
         BeforeEnumeration,
+        /// <summary>
+        /// Called for each page
+        /// </summary>
         PageReceived,
+        /// <summary>
+        /// Called after enumeration has finished
+        /// </summary>
         AfterEnumeration,
+        /// <summary>
+        /// Called if enumeration is aborted
+        /// </summary>
         EnumerationAborted
     }
 }

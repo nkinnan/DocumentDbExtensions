@@ -4,7 +4,7 @@ using Microsoft.Azure.Documents.Client;
 namespace Microsoft.Azure.Documents
 {
     /// <summary>
-    /// The only purpose of this is to adapt FeedResponse<T> into IFeedResponse which hides all enumeration ability
+    /// The only purpose of this is to adapt FeedResponse into IFeedResponse which hides all enumeration ability
     /// </summary>
     /// <typeparam name="T"></typeparam>
     internal class FeedResponseWrapper<T> : IFeedResponse

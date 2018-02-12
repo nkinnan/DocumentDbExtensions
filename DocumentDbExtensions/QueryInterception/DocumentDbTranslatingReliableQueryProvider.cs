@@ -74,6 +74,7 @@ namespace Microsoft.Azure.Documents
         /// <typeparam name="TElement"></typeparam>
         /// <param name="underlyingQuery"></param>
         /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>

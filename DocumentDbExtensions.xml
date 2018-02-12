@@ -141,6 +141,7 @@
             each DocumentDB FeedResponse as it comes through "behind the scenes".  Things like resource usage for example may be useful 
             to log.
             </summary>
+            <param name="type"></param>
             <param name="feedResponse"></param>
         </member>
         <member name="T:Microsoft.Azure.Documents.DocumentDbExtensions">
@@ -210,7 +211,6 @@
             
             This implementation does nothing.
             </summary>
-            <param name="exception"></param>
             <returns></returns>
         </member>
         <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.UnwrapAggregates(System.Exception)">
@@ -234,6 +234,7 @@
             <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
             <param name="underlyingQuery"></param>
             <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -269,6 +270,7 @@
             <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
             <param name="queryable"></param>
             <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -286,6 +288,7 @@
             <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
             <param name="queryable"></param>
             <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -303,6 +306,7 @@
             <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
             <param name="queryable"></param>
             <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -393,7 +397,6 @@
             
             Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
             </summary>
-            <typeparam name="R"></typeparam>
             <param name="action"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
@@ -410,7 +413,6 @@
             
             Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
             </summary>
-            <typeparam name="R"></typeparam>
             <param name="action"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
@@ -481,9 +483,163 @@
             <summary>
             FeedResponse callback type
             </summary>
+        </member>
+        <member name="F:Microsoft.Azure.Documents.FeedResponseType.BeforeEnumeration">
+            <summary>
+            Called before enumeration of results begins
+            </summary>
+        </member>
+        <member name="F:Microsoft.Azure.Documents.FeedResponseType.PageReceived">
+            <summary>
+            Called for each page
+            </summary>
+        </member>
+        <member name="F:Microsoft.Azure.Documents.FeedResponseType.AfterEnumeration">
+            <summary>
+            Called after enumeration has finished
+            </summary>
+        </member>
+        <member name="F:Microsoft.Azure.Documents.FeedResponseType.EnumerationAborted">
+            <summary>
+            Called if enumeration is aborted
+            </summary>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.FeedResponseWrapper`1">
+            <summary>
+            The only purpose of this is to adapt FeedResponse into IFeedResponse which hides all enumeration ability
+            </summary>
             <typeparam name="T"></typeparam>
         </member>
-        <!-- Badly formed XML comment ignored for member "T:Microsoft.Azure.Documents.FeedResponseWrapper`1" -->
+        <member name="T:Microsoft.Azure.Documents.IFeedResponse">
+            <summary>
+            Wrapper around Azure DocumentDB FeedResponse, exposing properties as read-only
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.ActivityId">
+            <summary>
+            Gets the activity ID for the request.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.CollectionQuota">
+            <summary>
+            Gets the maximum quota for collection resources within an account.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.CollectionSizeQuota">
+            <summary>
+            Maximum size of a collection in kilobytes.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.CollectionSizeUsage">
+            <summary>
+            Current size of a collection in kilobytes.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.CollectionUsage">
+            <summary>
+            The current number of collection resources within the account.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.ContentLocation">
+            <summary>
+            The content parent location, for example, dbs/foo/colls/bar
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.Count">
+            <summary>
+            Gets the number of items returned in the response.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.CurrentResourceQuotaUsage">
+            <summary>
+            Gets the current size of this entity.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.DatabaseQuota">
+            <summary>
+            Gets the maximum quota for database resources within the account.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.DatabaseUsage">
+            <summary>
+            The current number of database resources within the account.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.MaxResourceQuota">
+            <summary>
+            Gets the maximum size limit for this entity.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.PermissionQuota">
+            <summary>
+            Gets the maximum quota for permission resources within an account.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.PermissionUsage">
+            <summary>
+            The current number of permission resources within the account.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.RequestCharge">
+            <summary>
+            Gets the request charge for this request.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.ResponseContinuation">
+            <summary>
+            Gets the continuation token to be used for continuing enumeration.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.ResponseHeaders">
+            <summary>
+            Gets the response headers.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.SessionToken">
+            <summary>
+            Gets the session token for use in sesssion consistency reads.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.StoredProceduresQuota">
+            <summary>
+            Gets the maximum quota of stored procedures for a collection.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.StoredProceduresUsage">
+            <summary>
+            The current number of stored procedures for a collection.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.TriggersQuota">
+            <summary>
+            Gets the maximum quota of triggers for a collection.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.TriggersUsage">
+            <summary>
+            The current number of triggers for a collection.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.UserDefinedFunctionsQuota">
+            <summary>
+            Gets the maximum quota of user defined functions for a collection.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.UserDefinedFunctionsUsage">
+            <summary>
+            The current number of user defined functions for a collection.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.UserQuota">
+            <summary>
+            Gets the maximum quota for user resources within an account.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.IFeedResponse.UserUsage">
+            <summary>
+            The current number of user resources within the account.
+            </summary>
+        </member>
         <member name="T:Microsoft.Azure.Documents.InterceptingQuery`1">
             <summary>
             Allows evaluation of IQueryables to be "hooked" in conjunction with InterceptingQueryProvider.
@@ -537,6 +693,7 @@
             <typeparam name="TElement"></typeparam>
             <param name="underlyingQuery"></param>
             <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -580,6 +737,99 @@
             <param name="continuationToken"></param>
             <returns></returns>
         </member>
+        <member name="T:Microsoft.Azure.Documents.DocumentsPage`1">
+            <summary>
+            Encapsulates a page of documents plus a continuation token
+            </summary>
+            <typeparam name="T"></typeparam>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.DocumentsPage`1.Documents">
+            <summary>
+            The encapsulated read-only list of documents returned for this page
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.DocumentsPage`1.ContinuationToken">
+            <summary>
+            The continuation token used to get the next page
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.DocumentsPage`1.MoreResultsAvailable">
+            <summary>
+            Indicates whether additional pages are available
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.DocumentsPage`1.Count">
+            <summary>
+            Count of returned documents
+            </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentsPage`1.GetEnumerator">
+            <summary>
+            IEnumerable implementation
+            </summary>
+            <returns>Enumerator for the documents returned in this page</returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentsPage`1.System#Collections#IEnumerable#GetEnumerator">
+            <summary>
+            IEnumerable implementation
+            </summary>
+            <returns>Enumerator for the documents returned in this page</returns>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.PagingIQueryableExtensions">
+            <summary>
+            Implements extension methods for IQueryable to enable paging of results from DocumentDB
+            </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.PagingIQueryableExtensions.BeginPaging``1(System.Linq.IQueryable{``0})">
+            <summary>
+            Starts paging of query results
+            </summary>
+            <typeparam name="T">Returned type</typeparam>
+            <param name="query">Instance of IQueryable to operate on</param>
+            <returns>The first page of results</returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.PagingIQueryableExtensions.BeginPagingAsync``1(System.Linq.IQueryable{``0})">
+            <summary>
+            Starts paging of query results
+            </summary>
+            <typeparam name="T">Returned type</typeparam>
+            <param name="query">Instance of IQueryable to operate on</param>
+            <returns>The first page of results</returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.PagingIQueryableExtensions.GetNextPage``1(System.Linq.IQueryable{``0},System.String)">
+            <summary>
+            Gets the next page of query results
+            </summary>
+            <typeparam name="T">Returned type</typeparam>
+            <param name="query">Instance of IQueryable to operate on</param>
+            <param name="continuationToken">The continuation token to use</param>
+            <returns>The next page of results</returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.PagingIQueryableExtensions.GetNextPageAsync``1(System.Linq.IQueryable{``0},System.String)">
+            <summary>
+            Gets the next page of query results
+            </summary>
+            <typeparam name="T">Returned type</typeparam>
+            <param name="query">Instance of IQueryable to operate on</param>
+            <param name="continuationToken">The continuation token to use</param>
+            <returns>The next page of results</returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.PagingIQueryableExtensions.GetNextPage``1(System.Linq.IQueryable{``0})">
+            <summary>
+            Gets the next page of query results
+            </summary>
+            <typeparam name="T">Returned type</typeparam>
+            <param name="query">Instance of IQueryable to operate on</param>
+            <returns>The next page of results</returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.PagingIQueryableExtensions.GetNextPageAsync``1(System.Linq.IQueryable{``0})">
+            <summary>
+            Gets the next page of query results
+            </summary>
+            <typeparam name="T">Returned type</typeparam>
+            <param name="query">Instance of IQueryable to operate on</param>
+            <returns>The next page of results</returns>
+        </member>
         <member name="M:Microsoft.Azure.Documents.DocumentDbReliableExecution.ExecuteQueryWithContinuationAndRetry``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">
             <summary>
             This will execute a DocumentDB query in the form of an IQueryable (Linq form) and return the results.
@@ -590,6 +840,7 @@
             <typeparam name="R"></typeparam>
             <param name="queryable"></param>
             <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -605,6 +856,7 @@
             <typeparam name="R"></typeparam>
             <param name="queryable"></param>
             <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -653,7 +905,6 @@
             
             Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
             </summary>
-            <typeparam name="R"></typeparam>
             <param name="action"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>

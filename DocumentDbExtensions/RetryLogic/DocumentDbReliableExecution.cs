@@ -88,6 +88,7 @@ namespace Microsoft.Azure.Documents
         /// <typeparam name="R"></typeparam>
         /// <param name="queryable"></param>
         /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
@@ -151,6 +152,7 @@ namespace Microsoft.Azure.Documents
         /// <typeparam name="R"></typeparam>
         /// <param name="queryable"></param>
         /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
@@ -261,7 +263,6 @@ namespace Microsoft.Azure.Documents
         /// 
         /// Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
         /// </summary>
-        /// <typeparam name="R"></typeparam>
         /// <param name="action"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>

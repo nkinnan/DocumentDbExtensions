@@ -54,6 +54,7 @@ namespace Microsoft.Azure.Documents
     /// each DocumentDB FeedResponse as it comes through "behind the scenes".  Things like resource usage for example may be useful 
     /// to log.
     /// </summary>
+    /// <param name="type"></param>
     /// <param name="feedResponse"></param>
     public delegate void FeedResponseHandler(FeedResponseType type, IFeedResponse feedResponse);
 
@@ -168,7 +169,6 @@ namespace Microsoft.Azure.Documents
         /// 
         /// This implementation does nothing.
         /// </summary>
-        /// <param name="exception"></param>
         /// <returns></returns>
         public static void DefaultFeedResponseHandlerImplementation(FeedResponseType type, IFeedResponse feedResponse)
         {
@@ -216,6 +216,7 @@ namespace Microsoft.Azure.Documents
         /// <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
         /// <param name="underlyingQuery"></param>
         /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
@@ -267,6 +268,7 @@ namespace Microsoft.Azure.Documents
         /// <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
         /// <param name="queryable"></param>
         /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
@@ -291,6 +293,7 @@ namespace Microsoft.Azure.Documents
         /// <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
         /// <param name="queryable"></param>
         /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
@@ -313,6 +316,7 @@ namespace Microsoft.Azure.Documents
         /// <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
         /// <param name="queryable"></param>
         /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
@@ -445,7 +449,6 @@ namespace Microsoft.Azure.Documents
         /// 
         /// Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
         /// </summary>
-        /// <typeparam name="R"></typeparam>
         /// <param name="action"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
@@ -468,7 +471,6 @@ namespace Microsoft.Azure.Documents
         /// 
         /// Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
         /// </summary>
-        /// <typeparam name="R"></typeparam>
         /// <param name="action"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>

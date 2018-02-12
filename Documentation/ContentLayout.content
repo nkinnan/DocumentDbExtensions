@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Topics>
-  <Topic id="a793a9b4-c028-4b1f-9b3f-7b3028686588" visible="True" isDefault="true" isSelected="true" title="Welcome to the [TODO: Add project name]">
+  <Topic id="a793a9b4-c028-4b1f-9b3f-7b3028686588" visible="True" isDefault="true" isSelected="true" title="DocumentDbExtensions">
     <HelpKeywords>
       <HelpKeyword index="K" term="Welcome" />
     </HelpKeywords>

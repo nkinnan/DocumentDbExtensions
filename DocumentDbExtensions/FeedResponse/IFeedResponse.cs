@@ -2,107 +2,110 @@
 
 namespace Microsoft.Azure.Documents
 {
+    /// <summary>
+    /// Wrapper around Azure DocumentDB FeedResponse, exposing properties as read-only
+    /// </summary>
     public interface IFeedResponse
     {
-        //
-        // Summary:
-        //     Gets the activity ID for the request.
+        /// <summary>
+        /// Gets the activity ID for the request.
+        /// </summary>
         string ActivityId { get; }
-        //
-        // Summary:
-        //     Gets the maximum quota for collection resources within an account.
+        /// <summary>
+        /// Gets the maximum quota for collection resources within an account.
+        /// </summary>
         long CollectionQuota { get; }
-        //
-        // Summary:
-        //     Maximum size of a collection in kilobytes.
+        /// <summary>
+        /// Maximum size of a collection in kilobytes.
+        /// </summary>
         long CollectionSizeQuota { get; }
-        //
-        // Summary:
-        //     Current size of a collection in kilobytes.
+        /// <summary>
+        /// Current size of a collection in kilobytes.
+        /// </summary>
         long CollectionSizeUsage { get; }
-        //
-        // Summary:
-        //     The current number of collection resources within the account.
+        /// <summary>
+        /// The current number of collection resources within the account.
+        /// </summary>
         long CollectionUsage { get; }
-        //
-        // Summary:
-        //     The content parent location, for example, dbs/foo/colls/bar
+        /// <summary>
+        /// The content parent location, for example, dbs/foo/colls/bar
+        /// </summary>
         string ContentLocation { get; }
-        //
-        // Summary:
-        //     Gets the number of items returned in the response.
+        /// <summary>
+        /// Gets the number of items returned in the response.
+        /// </summary>
         int Count { get; }
-        //
-        // Summary:
-        //     Gets the current size of this entity.
+        /// <summary>
+        /// Gets the current size of this entity.
+        /// </summary>
         string CurrentResourceQuotaUsage { get; }
-        //
-        // Summary:
-        //     Gets the maximum quota for database resources within the account.
+        /// <summary>
+        /// Gets the maximum quota for database resources within the account.
+        /// </summary>
         long DatabaseQuota { get; }
-        //
-        // Summary:
-        //     The current number of database resources within the account.
+        /// <summary>
+        /// The current number of database resources within the account.
+        /// </summary>
         long DatabaseUsage { get; }
-        //
-        // Summary:
-        //     Gets the maximum size limit for this entity.
+        /// <summary>
+        /// Gets the maximum size limit for this entity.
+        /// </summary>
         string MaxResourceQuota { get; }
-        //
-        // Summary:
-        //     Gets the maximum quota for permission resources within an account.
+        /// <summary>
+        /// Gets the maximum quota for permission resources within an account.
+        /// </summary>
         long PermissionQuota { get; }
-        //
-        // Summary:
-        //     The current number of permission resources within the account.
+        /// <summary>
+        /// The current number of permission resources within the account.
+        /// </summary>
         long PermissionUsage { get; }
-        //
-        // Summary:
-        //     Gets the request charge for this request.
+        /// <summary>
+        /// Gets the request charge for this request.
+        /// </summary>
         double RequestCharge { get; }
-        //
-        // Summary:
-        //     Gets the continuation token to be used for continuing enumeration.
+        /// <summary>
+        /// Gets the continuation token to be used for continuing enumeration.
+        /// </summary>
         string ResponseContinuation { get; }
-        //
-        // Summary:
-        //     Gets the response headers.
+        /// <summary>
+        /// Gets the response headers.
+        /// </summary>
         NameValueCollection ResponseHeaders { get; }
-        //
-        // Summary:
-        //     Gets the session token for use in sesssion consistency reads.
+        /// <summary>
+        /// Gets the session token for use in sesssion consistency reads.
+        /// </summary>
         string SessionToken { get; }
-        //
-        // Summary:
-        //     Gets the maximum quota of stored procedures for a collection.
+        /// <summary>
+        /// Gets the maximum quota of stored procedures for a collection.
+        /// </summary>
         long StoredProceduresQuota { get; }
-        //
-        // Summary:
-        //     The current number of stored procedures for a collection.
+        /// <summary>
+        /// The current number of stored procedures for a collection.
+        /// </summary>
         long StoredProceduresUsage { get; }
-        //
-        // Summary:
-        //     Gets the maximum quota of triggers for a collection.
+        /// <summary>
+        /// Gets the maximum quota of triggers for a collection.
+        /// </summary>
         long TriggersQuota { get; }
-        //
-        // Summary:
-        //     The current number of triggers for a collection.
+        /// <summary>
+        /// The current number of triggers for a collection.
+        /// </summary>
         long TriggersUsage { get; }
-        //
-        // Summary:
-        //     Gets the maximum quota of user defined functions for a collection.
+        /// <summary>
+        /// Gets the maximum quota of user defined functions for a collection.
+        /// </summary>
         long UserDefinedFunctionsQuota { get; }
-        //
-        // Summary:
-        //     The current number of user defined functions for a collection.
+        /// <summary>
+        /// The current number of user defined functions for a collection.
+        /// </summary>
         long UserDefinedFunctionsUsage { get; }
-        //
-        // Summary:
-        //     Gets the maximum quota for user resources within an account.
+        /// <summary>
+        /// Gets the maximum quota for user resources within an account.
+        /// </summary>
         long UserQuota { get; }
-        //
-        // Summary:
-        //     The current number of user resources within the account.
+        /// <summary>
+        /// The current number of user resources within the account.
+        /// </summary>
         long UserUsage { get; }
 
     }
