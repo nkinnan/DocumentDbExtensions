@@ -10,7 +10,74 @@ namespace Microsoft.Azure.Documents
 {
     internal static class DocumentDbReliableExecution
     {
-        private const string BadQueryableMessage = "Queryable does not appear to be from DocumentDB, did you perhaps pass a queryable that was already intercepted by this library to an execute call which is meant for unwrapped DocumentDB queryables?  If so, you can simply call .ToArray() or equivalent since you already have a 'safe' wrapped queryable.  The main reason to use an un-wrapped DocumentDB queryable and then call one of the execute methods meant for bare DocumentDB queryables is to be able to get the results using an async Task<> since queryables do not support asyncronous execution.  Note however that this means results won't be paged/streamed in but fully streamed into memory before the async execute method returns.";
+        internal const string BadQueryableMessage = "Queryable does not appear to be from DocumentDB, did you perhaps pass a queryable that was already intercepted by this library to an execute call which is meant for unwrapped DocumentDB queryables?  If so, you can simply call .ToArray() or equivalent since you already have a 'safe' wrapped queryable.  The main reason to use an un-wrapped DocumentDB queryable and then call one of the execute methods meant for bare DocumentDB queryables is to be able to get the results using an async Task<> since queryables do not support asyncronous execution.  Note however that this means results won't be paged/streamed in but fully streamed into memory before the async execute method returns.";
+
+        internal static async Task<DocumentsPage<R>> BeginPagingWithRetry<R>(IDocumentQuery<R> query, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        {
+            feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
+
+            FeedResponse<R> firstPageResults = null;
+            while (firstPageResults == null)
+            {
+                try
+                {
+                    firstPageResults = await DocumentDbReliableExecution.ExecuteMethodWithRetry(() =>
+                    query.ExecuteNextAsync<R>(),
+                    maxRetries,
+                    maxTime,
+                    shouldRetry);
+                }
+                catch (Exception ex)
+                {
+                    bool handled = enumerationExceptionHandler(ex);
+                    if (!handled)
+                    {
+                        feedResponseHandler(FeedResponseType.EnumerationAborted, null);
+                        throw;
+                    }
+                }
+            }
+
+            // lots of interesting info in intermediateResults such as RU usage, etc.
+            feedResponseHandler(FeedResponseType.PageReceived, new FeedResponseWrapper<R>(firstPageResults));
+
+            return new DocumentsPage<R>(firstPageResults.ToList(), firstPageResults.ResponseContinuation);
+        }
+
+        internal static async Task<DocumentsPage<R>> GetNextPageWithRetry<R>(IDocumentQuery<R> query, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        {
+            FeedResponse<R> nextPageResults = null;
+            while (nextPageResults == null)
+            {
+                try
+                {
+                    nextPageResults = await DocumentDbReliableExecution.ExecuteMethodWithRetry(() =>
+                    query.ExecuteNextAsync<R>(),
+                    maxRetries,
+                    maxTime,
+                    shouldRetry);
+                }
+                catch (Exception ex)
+                {
+                    bool handled = enumerationExceptionHandler(ex);
+                    if (!handled)
+                    {
+                        feedResponseHandler(FeedResponseType.EnumerationAborted, null);
+                        throw;
+                    }
+                }
+            }
+
+            // lots of interesting info in intermediateResults such as RU usage, etc.
+            feedResponseHandler(FeedResponseType.PageReceived, new FeedResponseWrapper<R>(nextPageResults));
+
+            if (!query.HasMoreResults)
+            {
+                feedResponseHandler(FeedResponseType.AfterEnumeration, null);
+            }
+
+            return new DocumentsPage<R>(nextPageResults.ToList(), query.HasMoreResults ? nextPageResults.ResponseContinuation : null);
+        }
 
         /// <summary>
         /// This will execute a DocumentDB query in the form of an IQueryable (Linq form) and return the results.
@@ -32,7 +99,7 @@ namespace Microsoft.Azure.Documents
             {
                 query = queryable.AsDocumentQuery();
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 throw new ArgumentException(BadQueryableMessage, e);
             }
@@ -248,6 +315,11 @@ namespace Microsoft.Azure.Documents
                     try
                     {
                         retryDelay = shouldRetry(clientException);
+                    }
+                    catch (DocumentDbConflictResponse)
+                    {
+                        // conflict response was already handled properly internally to the ShouldRetry handler
+                        throw;
                     }
                     catch (DocumentDbUnexpectedResponse)
                     {

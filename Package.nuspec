@@ -2,12 +2,11 @@
 <package >
   <metadata>
     <id>DocumentDbExtensions</id>
-    <version>1.0.1</version>
+    <version>1.1.1</version>
     <authors>Nick Kinnan</authors>
     <owners>Nick Kinnan</owners>
-    <licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl>
+    <licenseUrl>https://github.com/nkinnan/DocumentDbExtensions/blob/master/LICENSE</licenseUrl>
     <projectUrl>https://github.com/nkinnan/DocumentDbExtensions</projectUrl>
-    <iconUrl>http://ICON_URL_HERE_OR_DELETE_THIS_LINE</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <summary>This library provides:
 1) Automatic retry logic with overloads taking both syncronous and asyncronous delegates compatible with all DocumentDB client methods.
@@ -21,18 +20,16 @@
 Additional benefits:
 Using this library allows you to simply return a DocumentDB IQueryable to the Microsoft OData libraries, allowing those libraries to convert any OData query in the URL into a DocumentDB query with no extra translation logic needed.  Again, it "just works".  An example along with tests demonstrating this functionality is available at https://github.com/nkinnan/DocumentDbExtensions
     </description>
-    <releaseNotes>Initial release.</releaseNotes>
-    <copyright>Copyright 2017</copyright>
-    <tags>Azure DocumentDB CosmosDB</tags>
+    <releaseNotes>Added support for paging.</releaseNotes>
+    <copyright>Copyright 2016</copyright>
+    <tags>Azure DocumentDB CosmosDB OData</tags>
     <dependencies>
       <!--<dependency id="SampleDependency" version="1.0" />-->
     </dependencies>
   </metadata>
   <files>
-    <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.dll" target="lib\net45\Debug\DocumentDbExtensions.dll" />
-    <file src="DocumentDbExtensions\bin\Debug\DocumentDbExtensions.pdb" target="lib\net45\Debug\DocumentDbExtensions.pdb" />
-    <file src="DocumentDbExtensions\bin\Release\DocumentDbExtensions.dll" target="lib\net45\Release\DocumentDbExtensions.dll" />
-    <file src="DocumentDbExtensions\bin\Release\DocumentDbExtensions.pdb" target="lib\net45\Release\DocumentDbExtensions.pdb" />
+    <file src="DocumentDbExtensions\bin\Release\DocumentDbExtensions.dll" target="lib\net45\DocumentDbExtensions.dll" />
+    <file src="DocumentDbExtensions\bin\Release\DocumentDbExtensions.pdb" target="lib\net45\DocumentDbExtensions.pdb" />
     <file src="README.md" target="README.md" />
     <!--<file src="source code or whatever" target="content\whatever">-->
   </files>

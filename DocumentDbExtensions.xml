@@ -105,7 +105,7 @@
             inputs removed in "continuation mode" course.)
             
             If your custom ShouldRetry logic can't understand the response, you should throw DocumentDbUnexpectedResponse.
-            If your custom ShouldRetry logic can understand the response but it is not retriable, you should throw DocumentDbNonRetriableResponse.
+            If your custom ShouldRetry logic can understand the response but it is not retriable, you should throw DocumentDbNonRetriableResponse or DocumentDbConflictResponse which is a special case of NonRetriable.
             If you throw any other exception type, that exception will be wrapped in DocumentDbRetryHandlerError.
             </summary>
             <param name="exception">The DocumentDB client exception to interpret and decide if you want to retry.</param>
@@ -231,9 +231,27 @@
             expressions that DocumentDB doesn't handle, and lazily enumerate with retries on each "page".  You do not need to call any 
             of the query execution methods in this class on it afterward, everything is automatic once the IQueryable has been intercepted.
             </summary>
-            <typeparam name="TElement"></typeparam>
+            <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
             <param name="underlyingQuery"></param>
             <param name="enumerationExceptionHandler"></param>
+            <param name="maxRetries"></param>
+            <param name="maxTime"></param>
+            <param name="shouldRetry"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.CreateQueryForPagingContinuationOnly``1(Microsoft.Azure.Documents.Client.DocumentClient,System.Uri,Microsoft.Azure.Documents.Client.FeedOptions,Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+            <summary>
+            This method will create an IQuerable which allows you to call GetNextPage(continuationToken) even after having "lost" the
+            original IQueryable instance, as long as you still have the continuationToken.  If the original IQueryable created via
+            InterceptQuery() is still around, you can simply call GetNextPage() with no parameters instead, as the continuations will
+            be tracked internally to that instance.
+            </summary>
+            <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
+            <param name="client">The DocumentClient to be used to re-create the paging context.</param>
+            <param name="collectionUri">The DocumentCollection URI to be used to re-create the paging context.  Should match the DocumentCollection used to create the original IQueryable.</param>
+            <param name="feedOptions">Any FeedOptions to be used to re-create the paging context.  Should match the FeedOptions used to create the original IQueryable.</param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -248,7 +266,7 @@
             
             You don't need to use this if you have called InterceptQuery() on the IQueryable previously.
             </summary>
-            <typeparam name="R"></typeparam>
+            <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
             <param name="queryable"></param>
             <param name="enumerationExceptionHandler"></param>
             <param name="maxRetries"></param>
@@ -265,7 +283,7 @@
             
             You don't need to use this if you have called InterceptQuery() on the IQueryable previously.
             </summary>
-            <typeparam name="R"></typeparam>
+            <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
             <param name="queryable"></param>
             <param name="enumerationExceptionHandler"></param>
             <param name="maxRetries"></param>
@@ -282,7 +300,7 @@
             
             You don't need to use this if you have called InterceptQuery() on the IQueryable previously.
             </summary>
-            <typeparam name="R"></typeparam>
+            <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
             <param name="queryable"></param>
             <param name="enumerationExceptionHandler"></param>
             <param name="maxRetries"></param>
@@ -399,6 +417,18 @@
             <param name="shouldRetry"></param>
             <returns></returns>
         </member>
+        <member name="T:Microsoft.Azure.Documents.DocumentDbConflictResponse">
+            <summary>
+            This exception type will be thrown if the default ShouldRetry logic encounters a response that is expected but non-retriable such as Conflict or NotFound.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbConflictResponse.#ctor(System.String,System.Exception)">
+            <summary>
+            The constructor.
+            </summary>
+            <param name="message"></param>
+            <param name="inner"></param>
+        </member>
         <member name="T:Microsoft.Azure.Documents.DocumentDbRetriesExceeded">
             <summary>
             This exception type will be thrown when the retry logic hits maxTime or maxRetries.
@@ -465,6 +495,11 @@
             Allows evaluation of IQueryables to be "hooked" in conjunction with InterceptingQuery.
             </summary>
         </member>
+        <member name="M:Microsoft.Azure.Documents.InterceptingQueryProvider.#ctor">
+            <summary>
+            Only meant for use by CreateQueryForPagingContinuationOnly
+            </summary>
+        </member>
         <member name="M:Microsoft.Azure.Documents.DocumentDbTranslateExpressionVisitor.VisitBinary(System.Linq.Expressions.BinaryExpression)">
             <summary>
             This method will be called for every binary expression in the expression tree.  We evaluate the node and 
@@ -528,6 +563,21 @@
             Intercept execute to add DocumentDB retry logic
             </summary>
             <param name="expression"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.GetNextPageAsync``1">
+            <summary>
+            Used if you're keeping the IQueryable (and thus this provider) around, continuation is tracked internally to the query
+            </summary>
+            <typeparam name="TElement"></typeparam>
+            <returns></returns>
+        </member>
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.GetNextPageAsync``1(System.String)">
+            <summary>
+            Used if you're re-creating the IQueryable for the purposes of next-page only, in this case you must track the continuation
+            </summary>
+            <typeparam name="TElement"></typeparam>
+            <param name="continuationToken"></param>
             <returns></returns>
         </member>
         <member name="M:Microsoft.Azure.Documents.DocumentDbReliableExecution.ExecuteQueryWithContinuationAndRetry``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">

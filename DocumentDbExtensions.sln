@@ -5,8 +5,6 @@ VisualStudioVersion = 15.0.26730.16
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentDbExtensions.Test", "DocumentDbExtensions.Test\DocumentDbExtensions.Test.csproj", "{2927A1C7-F548-4810-BE16-48D2533D7F2E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentDbExtensions", "DocumentDbExtensions\DocumentDbExtensions.csproj", "{55711C61-F241-43F4-80E9-0D6777C2D4D6}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExampleODataFromDocumentDb", "ExampleODataFromDocumentDb\ExampleODataFromDocumentDb.csproj", "{A69EE2BB-A826-47F2-A99B-58E81AA79FF7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExampleBasicUsage", "ExampleRegularUsage\ExampleBasicUsage.csproj", "{C5D78797-B8D6-4FF5-8C98-A1817AF283BE}"
@@ -25,6 +23,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExampleODataFromDocumentDb.
 EndProject
 Project("{7CF6DF6D-3B04-46F8-A40B-537D21BCA0B4}") = "Documentation", "Documentation\Documentation.shfbproj", "{F4BD60EE-BCFA-441E-8756-9606D4D834BC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentDbExtensions", "DocumentDbExtensions\DocumentDbExtensions.csproj", "{55711C61-F241-43F4-80E9-0D6777C2D4D6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E640844F-E56F-4B74-A5FC-509E29D61E82}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		makenuget.cmd = makenuget.cmd
+		Package.nuspec = Package.nuspec
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,10 +42,6 @@ Global
 		{2927A1C7-F548-4810-BE16-48D2533D7F2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2927A1C7-F548-4810-BE16-48D2533D7F2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2927A1C7-F548-4810-BE16-48D2533D7F2E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{55711C61-F241-43F4-80E9-0D6777C2D4D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{55711C61-F241-43F4-80E9-0D6777C2D4D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{55711C61-F241-43F4-80E9-0D6777C2D4D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{55711C61-F241-43F4-80E9-0D6777C2D4D6}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A69EE2BB-A826-47F2-A99B-58E81AA79FF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A69EE2BB-A826-47F2-A99B-58E81AA79FF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A69EE2BB-A826-47F2-A99B-58E81AA79FF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -63,18 +66,22 @@ Global
 		{F4BD60EE-BCFA-441E-8756-9606D4D834BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F4BD60EE-BCFA-441E-8756-9606D4D834BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F4BD60EE-BCFA-441E-8756-9606D4D834BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{55711C61-F241-43F4-80E9-0D6777C2D4D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{55711C61-F241-43F4-80E9-0D6777C2D4D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{55711C61-F241-43F4-80E9-0D6777C2D4D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{55711C61-F241-43F4-80E9-0D6777C2D4D6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{2927A1C7-F548-4810-BE16-48D2533D7F2E} = {1861CA16-D5B4-451A-9900-D97D229AB3C5}
-		{55711C61-F241-43F4-80E9-0D6777C2D4D6} = {1861CA16-D5B4-451A-9900-D97D229AB3C5}
 		{A69EE2BB-A826-47F2-A99B-58E81AA79FF7} = {6481BCA0-6902-47B1-A219-714F4C7322FA}
 		{C5D78797-B8D6-4FF5-8C98-A1817AF283BE} = {6CDB2461-8DD1-4AB1-B588-D019563183B6}
 		{D9FE841E-9A6A-4051-8458-F3671F5FE667} = {6CDB2461-8DD1-4AB1-B588-D019563183B6}
 		{A0588563-6BC8-402C-A341-810A0E94F16D} = {6481BCA0-6902-47B1-A219-714F4C7322FA}
 		{2C048D8C-1015-44E2-9E0C-16D5A17E14BC} = {6481BCA0-6902-47B1-A219-714F4C7322FA}
+		{55711C61-F241-43F4-80E9-0D6777C2D4D6} = {1861CA16-D5B4-451A-9900-D97D229AB3C5}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {31AA93A4-C642-41E3-84A9-5E6CF041E179}

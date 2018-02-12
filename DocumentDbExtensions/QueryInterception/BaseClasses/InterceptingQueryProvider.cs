@@ -19,6 +19,13 @@ namespace Microsoft.Azure.Documents
             this.visitors = visitors;
         }
 
+        /// <summary>
+        /// Only meant for use by CreateQueryForPagingContinuationOnly
+        /// </summary>
+        protected InterceptingQueryProvider()
+        {
+        }
+
         public virtual IQueryable<TElement> CreateQuery<TElement>(Expression expression)
         {
             IQueryable<TElement> queryable = underlyingProvider.CreateQuery<TElement>(expression);

@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Linq;
-using System.Runtime.Remoting;
-using System.Runtime.Serialization;
 
 namespace Microsoft.Azure.Documents
 {

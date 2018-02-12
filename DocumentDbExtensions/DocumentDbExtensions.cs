@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Azure.Documents.Client;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -17,7 +18,7 @@ namespace Microsoft.Azure.Documents
     /// inputs removed in "continuation mode" course.)
     /// 
     /// If your custom ShouldRetry logic can't understand the response, you should throw DocumentDbUnexpectedResponse.
-    /// If your custom ShouldRetry logic can understand the response but it is not retriable, you should throw DocumentDbNonRetriableResponse.
+    /// If your custom ShouldRetry logic can understand the response but it is not retriable, you should throw DocumentDbNonRetriableResponse or DocumentDbConflictResponse which is a special case of NonRetriable.
     /// If you throw any other exception type, that exception will be wrapped in DocumentDbRetryHandlerError.
     /// </summary>
     /// <param name="exception">The DocumentDB client exception to interpret and decide if you want to retry.</param>
@@ -111,13 +112,15 @@ namespace Microsoft.Azure.Documents
         /// <returns></returns>
         public static TimeSpan DefaultShouldRetryLogicImplementation(Exception exception)
         {
+            HttpStatusCode statusCode = (HttpStatusCode)(-1);
+
             foreach (var inner in UnwrapAggregates(exception))
             {
                 var documentClientException = inner as DocumentClientException;
 
                 if (documentClientException != null)
                 {
-                    var statusCode = documentClientException.StatusCode ?? (HttpStatusCode)(-1);
+                    statusCode = documentClientException.StatusCode ?? (HttpStatusCode)(-1);
 
                     // expected retriable codes
                     if (statusCode == (HttpStatusCode)429 /* "TooManyRequests" - not in the HttpStatusCode enum, but it is in the RFC at https://tools.ietf.org/html/rfc6585 and is expected */ || 
@@ -127,17 +130,25 @@ namespace Microsoft.Azure.Documents
                         return documentClientException.RetryAfter;
                     }
 
+                    // special case non-retriable (conflict)
+                    if(statusCode == HttpStatusCode.Conflict)
+                    {
+                        // note: inherits DocumentDbNonRetriableResponse
+                        throw new DocumentDbConflictResponse("Conflict on write. This is recoverable but not retriable (" + statusCode + ").", exception);
+                    }
+
                     // expected non-retriable codes
                     if (statusCode == HttpStatusCode.PreconditionFailed || 
                         statusCode == HttpStatusCode.NotFound ||
-                        statusCode == HttpStatusCode.Conflict)
+                        statusCode == HttpStatusCode.Conflict ||
+                        statusCode == HttpStatusCode.BadRequest)
                     {
-                        throw new DocumentDbNonRetriableResponse("Response from DocumentDB client is expected but non-retriable.", exception);
+                        throw new DocumentDbNonRetriableResponse("Response from DocumentDB client is expected but non-retriable (" + statusCode + ").", exception);
                     }
                 }
             }
 
-            throw new DocumentDbUnexpectedResponse("Unable to interpret response from DocumentDB client in order to determine if retry should happen.", exception);
+            throw new DocumentDbUnexpectedResponse("Unable to interpret response from DocumentDB client in order to determine if retry should happen (" + statusCode + ").", exception);
         }
 
         /// <summary>
@@ -202,7 +213,7 @@ namespace Microsoft.Azure.Documents
         /// expressions that DocumentDB doesn't handle, and lazily enumerate with retries on each "page".  You do not need to call any 
         /// of the query execution methods in this class on it afterward, everything is automatic once the IQueryable has been intercepted.
         /// </summary>
-        /// <typeparam name="TElement"></typeparam>
+        /// <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
         /// <param name="underlyingQuery"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="maxRetries"></param>
@@ -215,6 +226,33 @@ namespace Microsoft.Azure.Documents
                 throw new ArgumentException("underlyingQuery");
             return DocumentDbTranslatingReliableQueryProvider.Intercept(underlyingQuery, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
         }
+
+        /// <summary>
+        /// This method will create an IQuerable which allows you to call GetNextPage(continuationToken) even after having "lost" the
+        /// original IQueryable instance, as long as you still have the continuationToken.  If the original IQueryable created via
+        /// InterceptQuery() is still around, you can simply call GetNextPage() with no parameters instead, as the continuations will
+        /// be tracked internally to that instance.
+        /// </summary>
+        /// <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
+        /// <param name="client">The DocumentClient to be used to re-create the paging context.</param>
+        /// <param name="collectionUri">The DocumentCollection URI to be used to re-create the paging context.  Should match the DocumentCollection used to create the original IQueryable.</param>
+        /// <param name="feedOptions">Any FeedOptions to be used to re-create the paging context.  Should match the FeedOptions used to create the original IQueryable.</param>
+        /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
+        /// <param name="maxRetries"></param>
+        /// <param name="maxTime"></param>
+        /// <param name="shouldRetry"></param>
+        /// <returns></returns>
+        public static IQueryable<TElement> CreateQueryForPagingContinuationOnly<TElement>(DocumentClient client, Uri collectionUri, FeedOptions feedOptions, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        {
+            if (client == null)
+                throw new ArgumentException("client");
+            if (collectionUri == null)
+                throw new ArgumentException("collectionUri");
+            if (feedOptions == null)
+                throw new ArgumentException("feedOptions");
+            return DocumentDbTranslatingReliableQueryProvider.CreateForPagingContinuationOnly<TElement>(client, collectionUri, feedOptions, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+        }
         #endregion query interception
 
         #region query execution (non-intercepted)
@@ -226,14 +264,14 @@ namespace Microsoft.Azure.Documents
         /// 
         /// You don't need to use this if you have called InterceptQuery() on the IQueryable previously.
         /// </summary>
-        /// <typeparam name="R"></typeparam>
+        /// <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
         /// <param name="queryable"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static IList<R> ExecuteQueryWithContinuationAndRetry<R>(IQueryable<R> queryable, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static IList<TElement> ExecuteQueryWithContinuationAndRetry<TElement>(IQueryable<TElement> queryable, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (queryable == null)
                 throw new ArgumentException("queryable");
@@ -250,14 +288,14 @@ namespace Microsoft.Azure.Documents
         /// 
         /// You don't need to use this if you have called InterceptQuery() on the IQueryable previously.
         /// </summary>
-        /// <typeparam name="R"></typeparam>
+        /// <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
         /// <param name="queryable"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static async Task<IList<R>> ExecuteQueryWithContinuationAndRetryAsync<R>(IQueryable<R> queryable, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static async Task<IList<TElement>> ExecuteQueryWithContinuationAndRetryAsync<TElement>(IQueryable<TElement> queryable, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (queryable == null)
                 throw new ArgumentException("queryable");
@@ -272,14 +310,14 @@ namespace Microsoft.Azure.Documents
         /// 
         /// You don't need to use this if you have called InterceptQuery() on the IQueryable previously.
         /// </summary>
-        /// <typeparam name="R"></typeparam>
+        /// <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
         /// <param name="queryable"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static IEnumerable<R> StreamQueryWithContinuationAndRetry<R>(IQueryable<R> queryable, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static IEnumerable<TElement> StreamQueryWithContinuationAndRetry<TElement>(IQueryable<TElement> queryable, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (queryable == null)
                 throw new ArgumentException("queryable");

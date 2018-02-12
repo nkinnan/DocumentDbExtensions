@@ -268,3 +268,12 @@ nuget.exe
 
 # ignore obj directories
 obj
+
+#ignore bin directories
+bin
+
+#ignore .user files
+*.user
+
+#ignore .dll files
+*.dll
