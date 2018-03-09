@@ -373,6 +373,70 @@ namespace Microsoft.Azure.Documents
                         throw new ArgumentException("Unable to determine how to translate DateTime or DateTimeOffset MemberAccess node - if its part of your document type or DTO model, please decorate it with \"[JsonConverter(typeof(DateTimeDocumentDbJsonConverter))]\"");
                     }
 
+                case ExpressionType.Call:
+                    var call = node as MethodCallExpression;
+
+                    // execute this part of the expression tree to get the actual value and convert it to a constant with 
+                    // appropriate formatting for DocumentDB string comparison
+                    if (node.Type == typeof(DateTimeOffset?))
+                    {
+                        var lambdaExpression = Expression.Lambda<Func<DateTimeOffset?>>(node);
+                        var compiledExpression = lambdaExpression.Compile();
+                        var result = compiledExpression();
+
+                        if (result == null)
+                        {
+                            // rewrite the tree
+                            return Expression.Constant(null, typeof(string));
+                        }
+
+                        var formatted = result.ToDocDbFormat();
+
+                        // rewrite the tree
+                        return Expression.Constant(formatted, typeof(string));
+                    }
+                    else if (node.Type == typeof(DateTimeOffset))
+                    {
+                        var lambdaExpression = Expression.Lambda<Func<DateTimeOffset>>(node);
+                        var compiledExpression = lambdaExpression.Compile();
+                        var result = compiledExpression();
+
+                        var formatted = result.ToDocDbFormat();
+
+                        // rewrite the tree
+                        return Expression.Constant(formatted, typeof(string));
+                    }
+                    else if (node.Type == typeof(DateTime?))
+                    {
+                        var lambdaExpression = Expression.Lambda<Func<DateTime?>>(node);
+                        var compiledExpression = lambdaExpression.Compile();
+                        var result = compiledExpression();
+
+                        if (result == null)
+                        {
+                            // rewrite the tree
+                            return Expression.Constant(null, typeof(string));
+                        }
+
+                        var formatted = result.ToDocDbFormat();
+
+                        // rewrite the tree
+                        return Expression.Constant(formatted, typeof(string));
+                    }
+                    else if (node.Type == typeof(DateTime))
+                    {
+                        var lambdaExpression = Expression.Lambda<Func<DateTime>>(node);
+                        var compiledExpression = lambdaExpression.Compile();
+                        var result = compiledExpression();
+
+                        var formatted = result.ToDocDbFormat();
+
+                        // rewrite the tree
+                        return Expression.Constant(formatted, typeof(string));
+                    }
+
+                    throw new ArgumentException("Unable to translate Call node with name '" + call.Method.Name + "' of type: " + call.Method.GetType().Name);
+
                 default:
                     throw new ArgumentException("Unable to translate node of type " + node.NodeType);
             }
@@ -388,8 +452,6 @@ namespace Microsoft.Azure.Documents
                 node.Body.NodeType == ExpressionType.MemberInit)
             {
                 var memberInit = node.Body as MemberInitExpression;
-
-
 
                 //return Expression.Lambda<T>(new Expression(), params)
             }

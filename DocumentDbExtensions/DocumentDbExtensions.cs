@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Microsoft.Azure.Documents
@@ -149,7 +150,17 @@ namespace Microsoft.Azure.Documents
                 }
             }
 
-            throw new DocumentDbUnexpectedResponse("Unable to interpret response from DocumentDB client in order to determine if retry should happen (" + statusCode + ").", exception);
+            // special case for a case of the Linq abstraction being "leaky"
+            // I consider it a bug in the DocDB client lib that this isn't already wrapped/typed as a DocumentClientException saying something like "can't translate your Linq query"
+            if (exception is TargetInvocationException && 
+                exception.InnerException is InvalidOperationException && 
+                exception.InnerException.Message == "Nullable object must have a value." &&
+                exception.StackTrace.Contains("Microsoft.Azure.Documents.Linq.SubtreeEvaluator"))
+            {
+                throw new DocumentDbNonRetriableResponse("Exception from DocumentDB client indicates it cannot parse your Linq expression. This may be because you used a ternary similar to: (myLocalNullable ? myLocalNullable.Value : <etc>). Note that the DocumentDB client libs must evaluate every portion of the expression tree in order to translate it to a DocDB SQL query, like a compiler, even when the path is not expected to be followed in practice at runtime. You can fix this by saying instead: (myLocalNullable ? myLocalNullable : <etc>) which omits the '.Value' and should cause the expression tree visitor to emit a literal 'null' constant which will never be evaluated against.", exception);
+            }
+
+            throw new DocumentDbUnexpectedResponse("Unable to interpret response from DocumentDB client in order to determine if retry should happen (" + (statusCode == (HttpStatusCode)(-1) ? "Bare exception thrown by DocumentDB client library, no status code available." : statusCode.ToString()) + ").", exception);
         }
 
         /// <summary>

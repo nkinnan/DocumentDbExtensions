@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>DocumentDbExtensions</id>
-    <version>1.1.2</version>
+    <version>1.1.3</version>
     <authors>Nick Kinnan</authors>
     <owners>Nick Kinnan</owners>
     <licenseUrl>https://github.com/nkinnan/DocumentDbExtensions/blob/master/LICENSE</licenseUrl>
@@ -20,7 +20,7 @@
 Additional benefits:
 Using this library allows you to simply return a DocumentDB IQueryable to the Microsoft OData libraries, allowing those libraries to convert any OData query in the URL into a DocumentDB query with no extra translation logic needed.  Again, it "just works".  An example along with tests demonstrating this functionality is available at https://github.com/nkinnan/DocumentDbExtensions
     </description>
-    <releaseNotes>Downgrade reference to DocumentDB 1.13.0</releaseNotes>
+    <releaseNotes>Add support for "Call" operations in DateTime/Offset linq query support.  Improve exception messaging in case of a detected DocumentDB Client failure to translate your Linq expression.</releaseNotes>
     <copyright>Copyright 2016</copyright>
     <tags>Azure DocumentDB CosmosDB OData</tags>
     <dependencies>
