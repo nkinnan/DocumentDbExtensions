@@ -21,6 +21,7 @@ namespace Microsoft.Azure.Documents
 
         Mode mode = Mode.Invalid;
 
+        private QueryExecutionHandler queryExecutionHandler;
         private EnumerationExceptionHandler enumerationExceptionHandler;
         private FeedResponseHandler feedResponseHandler;
         private TimeSpan maxTime;
@@ -40,9 +41,10 @@ namespace Microsoft.Azure.Documents
         private const string MustBeginPagingFirstMessage = "BeginPaging() must be called before attempting to get the next page.";
         private const string InternalErrorMessage = "Internal error: Unknown or unhandled execution mode";
 
-        private DocumentDbTranslatingReliableQueryProvider(IQueryProvider underlyingProvider, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry, params ExpressionVisitor[] visitors)
+        private DocumentDbTranslatingReliableQueryProvider(IQueryProvider underlyingProvider, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry, params ExpressionVisitor[] visitors)
             : base(underlyingProvider, visitors)
         {
+            this.queryExecutionHandler = queryExecutionHandler;
             this.enumerationExceptionHandler = enumerationExceptionHandler;
             this.feedResponseHandler = feedResponseHandler;
             this.maxRetries = maxRetries;
@@ -52,9 +54,10 @@ namespace Microsoft.Azure.Documents
             this.mode = Mode.Intercept;
         }
 
-        private DocumentDbTranslatingReliableQueryProvider(DocumentClient client, Uri collectionUri, FeedOptions feedOptions, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry, params ExpressionVisitor[] visitors)
+        private DocumentDbTranslatingReliableQueryProvider(DocumentClient client, Uri collectionUri, FeedOptions feedOptions, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry, params ExpressionVisitor[] visitors)
             : base()
         {
+            this.queryExecutionHandler = queryExecutionHandler;
             this.enumerationExceptionHandler = enumerationExceptionHandler;
             this.feedResponseHandler = feedResponseHandler;
             this.maxRetries = maxRetries;
@@ -73,21 +76,22 @@ namespace Microsoft.Azure.Documents
         /// </summary>
         /// <typeparam name="TElement"></typeparam>
         /// <param name="underlyingQuery"></param>
+        /// <param name="queryExecutionHandler"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static IQueryable<TElement> Intercept<TElement>(IQueryable<TElement> underlyingQuery, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        public static IQueryable<TElement> Intercept<TElement>(IQueryable<TElement> underlyingQuery, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
-            var provider = new DocumentDbTranslatingReliableQueryProvider(underlyingQuery.Provider, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry, new DocumentDbTranslateExpressionVisitor(typeof(TElement)));
+            var provider = new DocumentDbTranslatingReliableQueryProvider(underlyingQuery.Provider, queryExecutionHandler, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry, new DocumentDbTranslateExpressionVisitor(typeof(TElement)));
             return provider.CreateQuery<TElement>(underlyingQuery.Expression);
         }
 
-        public static IQueryable<TElement> CreateForPagingContinuationOnly<TElement>(DocumentClient client, Uri collectionUri, FeedOptions feedOptions, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        public static IQueryable<TElement> CreateForPagingContinuationOnly<TElement>(DocumentClient client, Uri collectionUri, FeedOptions feedOptions, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
-            var provider = new DocumentDbTranslatingReliableQueryProvider(client, collectionUri, feedOptions, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry, new DocumentDbTranslateExpressionVisitor(typeof(TElement)));
+            var provider = new DocumentDbTranslatingReliableQueryProvider(client, collectionUri, feedOptions, queryExecutionHandler, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry, new DocumentDbTranslateExpressionVisitor(typeof(TElement)));
             return provider.CreateQuery<TElement>(Expression.Variable(typeof(TElement)));
         }
 
@@ -115,7 +119,7 @@ namespace Microsoft.Azure.Documents
 
             var interceptedExpression = base.InterceptExpression(expression);
             IQueryable<TElement> query = underlyingProvider.CreateQuery<TElement>(interceptedExpression);
-            var enumerable = DocumentDbReliableExecution.StreamQueryWithContinuationAndRetry(query, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry);
+            var enumerable = DocumentDbReliableExecution.StreamQueryWithContinuationAndRetry(query, queryExecutionHandler, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry);
             return enumerable.GetEnumerator();
         }
 
@@ -221,7 +225,7 @@ namespace Microsoft.Azure.Documents
                 throw new ArgumentException(DocumentDbReliableExecution.BadQueryableMessage, e);
             }
 
-            return await DocumentDbReliableExecution.BeginPagingWithRetry((IDocumentQuery<TElement>)this.pagingQuery, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry);
+            return await DocumentDbReliableExecution.BeginPagingWithRetry((IDocumentQuery<TElement>)this.pagingQuery, queryExecutionHandler, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry);
         }
 
         /// <summary>
@@ -245,7 +249,7 @@ namespace Microsoft.Azure.Documents
 
             var query = this.pagingQuery as IDocumentQuery<TElement>;
 
-            return await DocumentDbReliableExecution.GetNextPageWithRetry<TElement>(query, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry);
+            return await DocumentDbReliableExecution.GetNextPageWithRetry<TElement>(query, queryExecutionHandler, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry);
         }
 
         /// <summary>
@@ -280,7 +284,7 @@ namespace Microsoft.Azure.Documents
                 throw new ArgumentException(DocumentDbReliableExecution.BadQueryableMessage, e);
             }
 
-            return await DocumentDbReliableExecution.GetNextPageWithRetry<TElement>(query, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry);
+            return await DocumentDbReliableExecution.GetNextPageWithRetry<TElement>(query, queryExecutionHandler, enumerationExceptionHandler, feedResponseHandler, maxRetries, maxTime, shouldRetry);
         }
     }
 }

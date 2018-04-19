@@ -12,8 +12,10 @@ namespace Microsoft.Azure.Documents
     {
         internal const string BadQueryableMessage = "Queryable does not appear to be from DocumentDB, did you perhaps pass a queryable that was already intercepted by this library to an execute call which is meant for unwrapped DocumentDB queryables?  If so, you can simply call .ToArray() or equivalent since you already have a 'safe' wrapped queryable.  The main reason to use an un-wrapped DocumentDB queryable and then call one of the execute methods meant for bare DocumentDB queryables is to be able to get the results using an async Task<> since queryables do not support asyncronous execution.  Note however that this means results won't be paged/streamed in but fully streamed into memory before the async execute method returns.";
 
-        internal static async Task<DocumentsPage<R>> BeginPagingWithRetry<R>(IDocumentQuery<R> query, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        internal static async Task<DocumentsPage<R>> BeginPagingWithRetry<R>(IDocumentQuery<R> query, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
+            queryExecutionHandler(query.ToString());
+
             feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
 
             FeedResponse<R> firstPageResults = null;
@@ -23,6 +25,7 @@ namespace Microsoft.Azure.Documents
                 {
                     firstPageResults = await DocumentDbReliableExecution.ExecuteMethodWithRetry(() =>
                     query.ExecuteNextAsync<R>(),
+                    null,
                     maxRetries,
                     maxTime,
                     shouldRetry);
@@ -44,7 +47,7 @@ namespace Microsoft.Azure.Documents
             return new DocumentsPage<R>(firstPageResults.ToList(), firstPageResults.ResponseContinuation);
         }
 
-        internal static async Task<DocumentsPage<R>> GetNextPageWithRetry<R>(IDocumentQuery<R> query, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        internal static async Task<DocumentsPage<R>> GetNextPageWithRetry<R>(IDocumentQuery<R> query, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
             FeedResponse<R> nextPageResults = null;
             while (nextPageResults == null)
@@ -53,6 +56,7 @@ namespace Microsoft.Azure.Documents
                 {
                     nextPageResults = await DocumentDbReliableExecution.ExecuteMethodWithRetry(() =>
                     query.ExecuteNextAsync<R>(),
+                    null,
                     maxRetries,
                     maxTime,
                     shouldRetry);
@@ -87,13 +91,14 @@ namespace Microsoft.Azure.Documents
         /// </summary>
         /// <typeparam name="R"></typeparam>
         /// <param name="queryable"></param>
+        /// <param name="queryExecutionHandler"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static async Task<IList<R>> ExecuteQueryWithContinuationAndRetry<R>(IQueryable<R> queryable, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        public static async Task<IList<R>> ExecuteQueryWithContinuationAndRetry<R>(IQueryable<R> queryable, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
             IDocumentQuery<R> query = null;
             try
@@ -104,6 +109,8 @@ namespace Microsoft.Azure.Documents
             {
                 throw new ArgumentException(BadQueryableMessage, e);
             }
+
+            queryExecutionHandler(query.ToString());
 
             feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
 
@@ -116,6 +123,7 @@ namespace Microsoft.Azure.Documents
                 {
                     intermediateResults = await DocumentDbReliableExecution.ExecuteMethodWithRetry(() =>
                     query.ExecuteNextAsync<R>(),
+                    null,
                     maxRetries,
                     maxTime,
                     shouldRetry);
@@ -151,13 +159,14 @@ namespace Microsoft.Azure.Documents
         /// </summary>
         /// <typeparam name="R"></typeparam>
         /// <param name="queryable"></param>
+        /// <param name="queryExecutionHandler"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static IEnumerable<R> StreamQueryWithContinuationAndRetry<R>(IQueryable<R> queryable, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        public static IEnumerable<R> StreamQueryWithContinuationAndRetry<R>(IQueryable<R> queryable, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
             IDocumentQuery<R> query = null;
             try
@@ -169,6 +178,8 @@ namespace Microsoft.Azure.Documents
                 throw new ArgumentException(BadQueryableMessage, e);
             }
 
+            queryExecutionHandler(query.ToString());
+
             feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
 
             while (query.HasMoreResults)
@@ -178,6 +189,7 @@ namespace Microsoft.Azure.Documents
                 {
                     t = Task.Run(async () => await ExecuteMethodWithRetry(() =>
                         query.ExecuteNextAsync<R>(),
+                        null,
                         maxRetries,
                         maxTime,
                         shouldRetry));
@@ -222,14 +234,15 @@ namespace Microsoft.Azure.Documents
         /// Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
         /// </summary>
         /// <param name="action"></param>
+        /// <param name="resourceResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static async Task ExecuteMethodWithRetry(Action action, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        public static async Task ExecuteMethodWithRetry(Action action, ResourceResponseHandler resourceResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
             // just wrap it in a task and call the main WithRetry method
-            await ExecuteMethodWithRetry<int>(() => { action(); return 0; }, maxRetries, maxTime, shouldRetry);
+            await ExecuteMethodWithRetry<int>(() => { action(); return 0; }, resourceResponseHandler, maxRetries, maxTime, shouldRetry);
         }
 
         /// <summary>
@@ -243,15 +256,16 @@ namespace Microsoft.Azure.Documents
         /// </summary>
         /// <typeparam name="R"></typeparam>
         /// <param name="action"></param>
+        /// <param name="resourceResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static async Task<R> ExecuteMethodWithRetry<R>(Func<R> action, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        public static async Task<R> ExecuteMethodWithRetry<R>(Func<R> action, ResourceResponseHandler resourceResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
             // just wrap it in a task and call the main WithRetry method
             // the call to Task.Run must itself be closured because it takes a param 
-            return await ExecuteMethodWithRetry<R>(() => Task<R>.Run(action), maxRetries, maxTime, shouldRetry);
+            return await ExecuteMethodWithRetry<R>(() => Task<R>.Run(action), resourceResponseHandler, maxRetries, maxTime, shouldRetry);
         }
 
         /// <summary>
@@ -264,14 +278,15 @@ namespace Microsoft.Azure.Documents
         /// Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
         /// </summary>
         /// <param name="action"></param>
+        /// <param name="resourceResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static async Task ExecuteMethodWithRetry(Func<Task> action, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        public static async Task ExecuteMethodWithRetry(Func<Task> action, ResourceResponseHandler resourceResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
             // just wrap it in a task and call the main WithRetry method
-            await ExecuteMethodWithRetry<int>(async () => { await action(); return 0; }, maxRetries, maxTime, shouldRetry);
+            await ExecuteMethodWithRetry<int>(async () => { await action(); return 0; }, resourceResponseHandler, maxRetries, maxTime, shouldRetry);
         }
 
         /// <summary>
@@ -285,11 +300,12 @@ namespace Microsoft.Azure.Documents
         /// </summary>
         /// <typeparam name="R"></typeparam>
         /// <param name="action"></param>
+        /// <param name="resourceResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static async Task<R> ExecuteMethodWithRetry<R>(Func<Task<R>> action, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
+        public static async Task<R> ExecuteMethodWithRetry<R>(Func<Task<R>> action, ResourceResponseHandler resourceResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
             // time the execution
             Stopwatch sw = new Stopwatch();
@@ -307,7 +323,12 @@ namespace Microsoft.Azure.Documents
 
                 try
                 {
-                    return await action();
+                    var result = await action();
+
+                    if(result is IResourceResponseBase)
+                        resourceResponseHandler(result as IResourceResponseBase);
+
+                    return result;
                 }
                 catch (Exception clientException)
                 {
