@@ -65,8 +65,8 @@ namespace ExampleODataFromDocumentDb.Controllers
             };
             // this IQueryable will now work with DateTime/Offset types, follow result paging links, retry on error, and swallow any exceptions
             var safeWrappedQueryable = DocumentDbExtensions.InterceptQuery(
-                client.CreateDocumentQuery<HouseDto>(collectionLink), 
-                enumerationExceptionHandler);
+                client.CreateDocumentQuery<HouseDto>(collectionLink),
+                enumerationExceptionHandler: enumerationExceptionHandler);
 
             // because our collection contains multiple document types, filter on that first
             safeWrappedQueryable = safeWrappedQueryable
