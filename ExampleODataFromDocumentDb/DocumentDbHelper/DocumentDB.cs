@@ -114,10 +114,10 @@ namespace ExampleODataFromDocumentDb
 
             string collectionLink = string.Format("dbs/{0}/colls/{1}", databaseName, collectionName);
 
-            var database = await DocumentDbExtensions.ExecuteMethodWithRetryAsync(() =>
+            var database = await DocumentDbExtensions.ExecuteResultWithRetryAsync(() =>
                 GetOrCreateDatabase(client, databaseName));
 
-            var collection = await DocumentDbExtensions.ExecuteMethodWithRetryAsync(() =>
+            var collection = await DocumentDbExtensions.ExecuteResultWithRetryAsync(() =>
                 GetOrCreateCollection(client, database, collectionName));
 
             return client;

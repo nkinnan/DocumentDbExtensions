@@ -201,7 +201,7 @@ namespace ExampleODataFromDocumentDb.Controllers
             string documentLink = string.Format(documentLinkFormat, key);
             try
             {
-                await DocumentDbExtensions.ExecuteMethodWithRetryAsync(() =>
+                await DocumentDbExtensions.ExecuteResultWithRetryAsync(() =>
                     client.DeleteDocumentAsync(documentLink));
             }
             catch (DocumentDbNonRetriableResponse e)

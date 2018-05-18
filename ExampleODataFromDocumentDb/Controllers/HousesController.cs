@@ -185,7 +185,7 @@ namespace ExampleODataFromDocumentDb.Controllers
             ResourceResponse<Document> created = null;
             try
             {
-                created = await DocumentDbExtensions.ExecuteMethodWithRetryAsync(() =>
+                created = await DocumentDbExtensions.ExecuteResultWithRetryAsync(() =>
                 client.CreateDocumentAsync(collectionLink, houseDoc, docdbOptions));
             }
             catch(DocumentDbNonRetriableResponse e)
@@ -253,7 +253,7 @@ namespace ExampleODataFromDocumentDb.Controllers
             {
                 // execute the replace document call safely with retries
                 string documentLink = string.Format(documentLinkFormat, key);
-                updated = await DocumentDbExtensions.ExecuteMethodWithRetryAsync(() =>
+                updated = await DocumentDbExtensions.ExecuteResultWithRetryAsync(() =>
                     client.ReplaceDocumentAsync(documentLink, updatedDoc, docdbOptions));
             }
             catch(DocumentDbNonRetriableResponse e)
@@ -304,7 +304,7 @@ namespace ExampleODataFromDocumentDb.Controllers
             ResourceResponse<Document> replaced = null;
             try
             {
-                replaced = await DocumentDbExtensions.ExecuteMethodWithRetryAsync(() =>
+                replaced = await DocumentDbExtensions.ExecuteResultWithRetryAsync(() =>
                     client.ReplaceDocumentAsync(documentLink, houseDoc, docdbOptions));
             }
             catch(DocumentDbNonRetriableResponse e)
@@ -350,7 +350,7 @@ namespace ExampleODataFromDocumentDb.Controllers
             string documentLink = string.Format(documentLinkFormat, key);
             try
             {
-                await DocumentDbExtensions.ExecuteMethodWithRetryAsync(() =>
+                await DocumentDbExtensions.ExecuteResultWithRetryAsync(() =>
                     client.DeleteDocumentAsync(documentLink, docdbOptions));
             }
             catch(DocumentDbNonRetriableResponse e)

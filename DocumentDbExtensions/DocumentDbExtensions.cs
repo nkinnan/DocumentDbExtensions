@@ -280,15 +280,16 @@ namespace Microsoft.Azure.Documents
         /// <param name="queryExecutionHandler"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="feedResponseHandler"></param>
+        /// <param name="resourceResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static IQueryable<TElement> InterceptQuery<TElement>(IQueryable<TElement> underlyingQuery, QueryExecutionHandler queryExecutionHandler = null, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static IQueryable<TElement> InterceptQuery<TElement>(IQueryable<TElement> underlyingQuery, QueryExecutionHandler queryExecutionHandler = null, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (underlyingQuery == null)
                 throw new ArgumentException("underlyingQuery");
-            return DocumentDbTranslatingReliableQueryProvider.Intercept(underlyingQuery, queryExecutionHandler, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            return DocumentDbTranslatingReliableQueryProvider.Intercept(underlyingQuery, queryExecutionHandler ?? DefaultQueryExecutionHandlerImplementation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
         }
 
         /// <summary>
@@ -304,11 +305,12 @@ namespace Microsoft.Azure.Documents
         /// <param name="queryExecutionHandler"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="feedResponseHandler"></param>
+        /// <param name="resourceResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static IQueryable<TElement> CreateQueryForPagingContinuationOnly<TElement>(DocumentClient client, Uri collectionUri, FeedOptions feedOptions, QueryExecutionHandler queryExecutionHandler = null, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static IQueryable<TElement> CreateQueryForPagingContinuationOnly<TElement>(DocumentClient client, Uri collectionUri, FeedOptions feedOptions, QueryExecutionHandler queryExecutionHandler = null, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (client == null)
                 throw new ArgumentException("client");
@@ -316,7 +318,7 @@ namespace Microsoft.Azure.Documents
                 throw new ArgumentException("collectionUri");
             if (feedOptions == null)
                 throw new ArgumentException("feedOptions");
-            return DocumentDbTranslatingReliableQueryProvider.CreateForPagingContinuationOnly<TElement>(client, collectionUri, feedOptions, queryExecutionHandler, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            return DocumentDbTranslatingReliableQueryProvider.CreateForPagingContinuationOnly<TElement>(client, collectionUri, feedOptions, queryExecutionHandler ?? DefaultQueryExecutionHandlerImplementation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
         }
         #endregion query interception
 
@@ -342,7 +344,7 @@ namespace Microsoft.Azure.Documents
         {
             if (queryable == null)
                 throw new ArgumentException("queryable");
-            var task = DocumentDbReliableExecution.ExecuteQueryWithContinuationAndRetry(queryable, queryExecutionHandler, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            var task = DocumentDbReliableExecution.ExecuteQueryWithContinuationAndRetry(queryable, queryExecutionHandler ?? DefaultQueryExecutionHandlerImplementation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
             task.Wait();
             return task.Result;
         }
@@ -368,7 +370,7 @@ namespace Microsoft.Azure.Documents
         {
             if (queryable == null)
                 throw new ArgumentException("queryable");
-            return await DocumentDbReliableExecution.ExecuteQueryWithContinuationAndRetry(queryable, queryExecutionHandler, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            return await DocumentDbReliableExecution.ExecuteQueryWithContinuationAndRetry(queryable, queryExecutionHandler ?? DefaultQueryExecutionHandlerImplementation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
         }
 
         /// <summary>
@@ -405,11 +407,11 @@ namespace Microsoft.Azure.Documents
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
-        public static void ExecuteMethodWithRetry(Action action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static void ExecuteResultWithRetry(Action action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (action == null)
                 throw new ArgumentException("action");
-            var task = DocumentDbReliableExecution.ExecuteMethodWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            var task = DocumentDbReliableExecution.ExecuteResultWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
             task.Wait();
         }
 
@@ -422,11 +424,11 @@ namespace Microsoft.Azure.Documents
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static async Task ExecuteMethodWithRetryAsync(Action action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static async Task ExecuteResultWithRetryAsync(Action action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (action == null)
                 throw new ArgumentException("action");
-            await DocumentDbReliableExecution.ExecuteMethodWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            await DocumentDbReliableExecution.ExecuteResultWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
         }
 
         /// <summary>
@@ -439,65 +441,17 @@ namespace Microsoft.Azure.Documents
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static R ExecuteMethodWithRetry<R>(Func<R> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static R ExecuteResultWithRetry<R>(Func<R> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (action == null)
                 throw new ArgumentException("action");
-            var task = DocumentDbReliableExecution.ExecuteMethodWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
-            task.Wait();
-            return task.Result;
-        }
-
-        /// <summary>
-        /// This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
-        /// </summary>
-        /// <typeparam name="R"></typeparam>
-        /// <param name="action"></param>
-        /// <param name="resourceResponseHandler"></param>
-        /// <param name="maxRetries"></param>
-        /// <param name="maxTime"></param>
-        /// <param name="shouldRetry"></param>
-        /// <returns></returns>
-        public static async Task<R> ExecuteMethodWithRetryAsync<R>(Func<R> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
-        {
-            if (action == null)
-                throw new ArgumentException("action");
-            return await DocumentDbReliableExecution.ExecuteMethodWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
-        }
-
-        /// <summary>
-        /// This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
-        /// 
-        /// The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
-        /// execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
-        /// WithRetry method invocation time.
-        /// 
-        /// Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
-        /// </summary>
-        /// <typeparam name="R"></typeparam>
-        /// <param name="action"></param>
-        /// <param name="resourceResponseHandler"></param>
-        /// <param name="maxRetries"></param>
-        /// <param name="maxTime"></param>
-        /// <param name="shouldRetry"></param>
-        /// <returns></returns>
-        public static R ExecuteMethodWithRetry<R>(Func<Task<R>> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
-        {
-            if (action == null)
-                throw new ArgumentException("action");
-            var task = DocumentDbReliableExecution.ExecuteMethodWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            var task = DocumentDbReliableExecution.ExecuteResultWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
             task.Wait();
             return task.Result;
         }
 
         /// <summary>
         /// This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
-        /// 
-        /// The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
-        /// execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
-        /// WithRetry method invocation time.
-        /// 
-        /// Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
         /// </summary>
         /// <typeparam name="R"></typeparam>
         /// <param name="action"></param>
@@ -506,11 +460,11 @@ namespace Microsoft.Azure.Documents
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static async Task<R> ExecuteMethodWithRetryAsync<R>(Func<Task<R>> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static async Task<R> ExecuteResultWithRetryAsync<R>(Func<R> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (action == null)
                 throw new ArgumentException("action");
-            return await DocumentDbReliableExecution.ExecuteMethodWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            return await DocumentDbReliableExecution.ExecuteResultWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
         }
 
         /// <summary>
@@ -520,7 +474,55 @@ namespace Microsoft.Azure.Documents
         /// execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
         /// WithRetry method invocation time.
         /// 
-        /// Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
+        /// Example: "ExecuteResultWithRetry(() => YourCallHere(arguments, will, be, closured));"
+        /// </summary>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="action"></param>
+        /// <param name="resourceResponseHandler"></param>
+        /// <param name="maxRetries"></param>
+        /// <param name="maxTime"></param>
+        /// <param name="shouldRetry"></param>
+        /// <returns></returns>
+        public static R ExecuteResultWithRetry<R>(Func<Task<R>> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        {
+            if (action == null)
+                throw new ArgumentException("action");
+            var task = DocumentDbReliableExecution.ExecuteResultWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            task.Wait();
+            return task.Result;
+        }
+
+        /// <summary>
+        /// This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+        /// 
+        /// The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+        /// execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+        /// WithRetry method invocation time.
+        /// 
+        /// Example: "ExecuteResultWithRetry(() => YourCallHere(arguments, will, be, closured));"
+        /// </summary>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="action"></param>
+        /// <param name="resourceResponseHandler"></param>
+        /// <param name="maxRetries"></param>
+        /// <param name="maxTime"></param>
+        /// <param name="shouldRetry"></param>
+        /// <returns></returns>
+        public static async Task<R> ExecuteResultWithRetryAsync<R>(Func<Task<R>> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        {
+            if (action == null)
+                throw new ArgumentException("action");
+            return await DocumentDbReliableExecution.ExecuteResultWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+        }
+
+        /// <summary>
+        /// This will execute a DocumentDB client method for you while handling retriable errors such as "too many requests".
+        /// 
+        /// The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+        /// execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+        /// WithRetry method invocation time.
+        /// 
+        /// Example: "ExecuteResultWithRetry(() => YourCallHere(arguments, will, be, closured));"
         /// </summary>
         /// <param name="action"></param>
         /// <param name="resourceResponseHandler"></param>
@@ -528,11 +530,11 @@ namespace Microsoft.Azure.Documents
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static void ExecuteMethodWithRetry(Func<Task> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static void ExecuteResultWithRetry(Func<Task> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (action == null)
                 throw new ArgumentException("action");
-            var task = DocumentDbReliableExecution.ExecuteMethodWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            var task = DocumentDbReliableExecution.ExecuteResultWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
             task.Wait();
         }
 
@@ -543,7 +545,7 @@ namespace Microsoft.Azure.Documents
         /// execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
         /// WithRetry method invocation time.
         /// 
-        /// Example: "ExecuteMethodWithRetry(() => YourCallHere(arguments, will, be, closured));"
+        /// Example: "ExecuteResultWithRetry(() => YourCallHere(arguments, will, be, closured));"
         /// </summary>
         /// <param name="action"></param>
         /// <param name="resourceResponseHandler"></param>
@@ -551,12 +553,113 @@ namespace Microsoft.Azure.Documents
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static async Task ExecuteMethodWithRetryAsync(Func<Task> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static async Task ExecuteResultWithRetryAsync(Func<Task> action, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (action == null)
                 throw new ArgumentException("action");
-            await DocumentDbReliableExecution.ExecuteMethodWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            await DocumentDbReliableExecution.ExecuteResultWithRetry(action, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
         }
+
+        /// <summary>
+        /// This will execute a DocumentDB client FeedResponse method for you while handling retriable errors such as "too many requests".
+        /// 
+        /// The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+        /// execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+        /// WithRetry method invocation time.  
+        /// 
+        /// Because of an implementation detail of the DocumentDb Client, you'll need your lambda to take the continuation token and apply
+        /// it to the feed options passed into the method you've wrapped in your lambda.
+        /// 
+        /// Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
+        /// </summary>
+        /// <param name="action"></param>
+        /// <param name="resourceResponseHandler"></param>
+        /// <param name="maxRetries"></param>
+        /// <param name="maxTime"></param>
+        /// <param name="shouldRetry"></param>
+        /// <returns></returns>
+        public static async Task<IList<R>> ExecuteFeedWithContinuationAndRetry<R>(Func<string, FeedResponse<R>> feedTakingContinuation, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int? maxRetries, TimeSpan? maxTime, ShouldRetry shouldRetry)
+        {
+            if (feedTakingContinuation == null)
+                throw new ArgumentException("action");
+            return await DocumentDbReliableExecution.ExecuteFeedWithContinuationAndRetry(feedTakingContinuation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+        }
+
+        /// <summary>
+        /// This will execute a DocumentDB client FeedResponse method for you while handling retriable errors such as "too many requests".
+        /// 
+        /// The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+        /// execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+        /// WithRetry method invocation time.  
+        /// 
+        /// Because of an implementation detail of the DocumentDb Client, you'll need your lambda to take the continuation token and apply
+        /// it to the feed options passed into the method you've wrapped in your lambda.
+        /// 
+        /// Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
+        /// </summary>
+        /// <param name="action"></param>
+        /// <param name="resourceResponseHandler"></param>
+        /// <param name="maxRetries"></param>
+        /// <param name="maxTime"></param>
+        /// <param name="shouldRetry"></param>
+        /// <returns></returns>
+        public static async Task<IList<R>> ExecuteFeedWithContinuationAndRetry<R>(Func<string, Task<FeedResponse<R>>> feedTakingContinuation, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int? maxRetries, TimeSpan? maxTime, ShouldRetry shouldRetry)
+        {
+            if (feedTakingContinuation == null)
+                throw new ArgumentException("action");
+            return await DocumentDbReliableExecution.ExecuteFeedWithContinuationAndRetry(feedTakingContinuation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+        }
+
+        /// <summary>
+        /// This will execute a DocumentDB client FeedResponse method for you while handling retriable errors such as "too many requests".
+        /// 
+        /// The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+        /// execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+        /// WithRetry method invocation time.  
+        /// 
+        /// Because of an implementation detail of the DocumentDb Client, you'll need your lambda to take the continuation token and apply
+        /// it to the feed options passed into the method you've wrapped in your lambda.
+        /// 
+        /// Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
+        /// </summary>
+        /// <param name="action"></param>
+        /// <param name="resourceResponseHandler"></param>
+        /// <param name="maxRetries"></param>
+        /// <param name="maxTime"></param>
+        /// <param name="shouldRetry"></param>
+        /// <returns></returns>
+        public static IEnumerable<R> StreamFeedWithContinuationAndRetry<R>(Func<string, FeedResponse<R>> feedTakingContinuation, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int? maxRetries, TimeSpan? maxTime, ShouldRetry shouldRetry)
+        {
+            if (feedTakingContinuation == null)
+                throw new ArgumentException("action");
+            return DocumentDbReliableExecution.StreamFeedWithContinuationAndRetry(feedTakingContinuation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+        }
+
+        /// <summary>
+        /// This will execute a DocumentDB client FeedResponse method for you while handling retriable errors such as "too many requests".
+        /// 
+        /// The caller must explicitly wrap the async call they want to make in a lambda.  This is so that WithRetry can 
+        /// execute the lambda in order to ask for the task multiple times instead of getting an instance created at 
+        /// WithRetry method invocation time.  
+        /// 
+        /// Because of an implementation detail of the DocumentDb Client, you'll need your lambda to take the continuation token and apply
+        /// it to the feed options passed into the method you've wrapped in your lambda.
+        /// 
+        /// Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
+        /// </summary>
+        /// <param name="action"></param>
+        /// <param name="resourceResponseHandler"></param>
+        /// <param name="maxRetries"></param>
+        /// <param name="maxTime"></param>
+        /// <param name="shouldRetry"></param>
+        /// <returns></returns>
+        public static IEnumerable<R> StreamFeedWithContinuationAndRetry<R>(Func<string, Task<FeedResponse<R>>> feedTakingContinuation, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int? maxRetries, TimeSpan? maxTime, ShouldRetry shouldRetry)
+        {
+            if (feedTakingContinuation == null)
+                throw new ArgumentException("action");
+            return DocumentDbReliableExecution.StreamFeedWithContinuationAndRetry(feedTakingContinuation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+        }
+
         #endregion DocumentDB client method execution
     }
 }

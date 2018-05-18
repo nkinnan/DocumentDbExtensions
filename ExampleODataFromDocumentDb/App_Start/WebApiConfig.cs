@@ -49,7 +49,7 @@ namespace ExampleODataFromDocumentDb
             var client = await DocumentDB.GetDocumentClient(connectionString, databaseName, collectionName);
 
             // update the sproc
-            await DocumentDbExtensions.ExecuteMethodWithRetryAsync(() =>
+            await DocumentDbExtensions.ExecuteResultWithRetryAsync(() =>
                 client.UpsertTriggerAsync(collectionLink, DocumentDB.maintainHistoryAndTimestampsTrigger));
         }
 

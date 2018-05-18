@@ -86,7 +86,7 @@ namespace ExampleODataFromDocumentDb.Test
             houseDocument.TestWindows = null;
 
             // insert it directly to DocumentDB
-            DocumentDbExtensions.ExecuteMethodWithRetry(() =>
+            DocumentDbExtensions.ExecuteResultWithRetry(() =>
                 docClient.UpsertDocumentAsync(collectionLink, houseDocument));
 
             // retrieve it directly from DocumentDB
