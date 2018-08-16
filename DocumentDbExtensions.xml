@@ -221,7 +221,10 @@
         <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultShouldRetryLogicImplementation(Microsoft.Azure.Documents.FeedResponseContext,System.Exception)">
             <summary>
             The implementation of the default ShouldRetry logic, this is assigned to "DefaultShouldRetry" by default.
+            Please note that context is only available when executing a feed (a Linq or SQL text query) including the default
+            enumeration handler, but not for example if an exception is generated from an ExecuteResult...() call.
             </summary>
+            <param name="context"></param>
             <param name="exception"></param>
             <returns></returns>
         </member>
