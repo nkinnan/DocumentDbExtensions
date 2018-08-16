@@ -66,6 +66,11 @@ namespace Microsoft.Azure.Documents
         public DocumentDbTranslateExpressionVisitor(Type rootType)
         {
             FindAllChildTypes(rootType);
+
+            while((rootType = rootType.BaseType) != typeof(object))
+            {
+                FindAllChildTypes(rootType);
+            }
         }
 
         /// <summary>
