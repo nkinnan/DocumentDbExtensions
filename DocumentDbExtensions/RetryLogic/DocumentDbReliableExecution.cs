@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Azure.Documents.Client;
 using System.Diagnostics;
+using Newtonsoft.Json;
 
 namespace Microsoft.Azure.Documents
 {
@@ -16,21 +17,31 @@ namespace Microsoft.Azure.Documents
 
         private static FeedResponseContext MakeFirstContextForPaging(object key)
         {
-            var frc = new FeedResponseContext();
-            PagingContext.Add(key, frc);
-            return frc;
+            var context = new FeedResponseContext();
+            PagingContext.Add(key, context);
+            return context;
         }
 
         private static FeedResponseContext GetContextForPaging(object key)
         {
-            var frc = PagingContext[key];
-            return frc;
+            var context = PagingContext[key];
+            return context;
         }
 
-        private static void UpdateContext<R>(FeedResponseContext context, FeedResponse<R> response)
+        private static void DeletePagingContext(object key)
+        {
+            PagingContext.Remove(key);
+        }
+
+        private static void UpdateContext<R>(FeedResponseContext context, FeedResponse<R> response, int resultJsonLength, bool hasMoreResults)
         {
             context.TotalCount += response.Count;
             context.TotalRequestCharge += response.RequestCharge;
+            context.TotalResultsJsonStringLength += resultJsonLength;
+            if(!hasMoreResults)
+            {
+                context.StopTiming();
+            }
         }
 
         internal static async Task<DocumentsPage<R>> BeginPagingWithRetry<R>(IDocumentQuery<R> query, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
@@ -41,12 +52,12 @@ namespace Microsoft.Azure.Documents
 
             feedResponseHandler(context, FeedResponseType.BeforeEnumeration, null);
 
-            FeedResponse<R> firstPageResults = null;
-            while (firstPageResults == null)
+            FeedResponse<R> firstPageResponse = null;
+            while (firstPageResponse == null)
             {
                 try
                 {
-                    firstPageResults = await DocumentDbReliableExecution.ExecuteResultWithRetry(() =>
+                    firstPageResponse = await DocumentDbReliableExecution.ExecuteResultWithRetry(() =>
                     query.ExecuteNextAsync<R>(),
                     null,
                     maxRetries,
@@ -65,22 +76,28 @@ namespace Microsoft.Azure.Documents
             }
 
             // lots of interesting info in intermediateResults such as RU usage, etc.
-            UpdateContext<R>(context, firstPageResults);
-            feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(firstPageResults));
+            List<R> firstPageResults = firstPageResponse.ToList();
+            UpdateContext(context, firstPageResponse, JsonConvert.SerializeObject(firstPageResults).Length, query.HasMoreResults);
+            feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(firstPageResponse));
 
-            return new DocumentsPage<R>(firstPageResults.ToList(), firstPageResults.ResponseContinuation);
+            if (!query.HasMoreResults)
+            {
+                DeletePagingContext(query);
+            }
+
+            return new DocumentsPage<R>(firstPageResults, query.HasMoreResults ? firstPageResponse.ResponseContinuation : null);
         }
 
         internal static async Task<DocumentsPage<R>> GetNextPageWithRetry<R>(IDocumentQuery<R> query, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
             var context = GetContextForPaging(query);
 
-            FeedResponse<R> nextPageResults = null;
-            while (nextPageResults == null)
+            FeedResponse<R> nextPageResponse = null;
+            while (nextPageResponse == null)
             {
                 try
                 {
-                    nextPageResults = await DocumentDbReliableExecution.ExecuteResultWithRetry(() =>
+                    nextPageResponse = await DocumentDbReliableExecution.ExecuteResultWithRetry(() =>
                     query.ExecuteNextAsync<R>(),
                     null,
                     maxRetries,
@@ -103,15 +120,19 @@ namespace Microsoft.Azure.Documents
             }
 
             // lots of interesting info in intermediateResults such as RU usage, etc.
-            UpdateContext<R>(context, nextPageResults);
-            feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(nextPageResults));
+            List<R> nextPageResults = nextPageResponse.ToList();
+            UpdateContext<R>(context, nextPageResponse, JsonConvert.SerializeObject(nextPageResults).Length, query.HasMoreResults);
+            feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(nextPageResponse));
 
             if (!query.HasMoreResults)
             {
                 feedResponseHandler(context, FeedResponseType.AfterEnumeration, null);
             }
 
-            return new DocumentsPage<R>(nextPageResults.ToList(), query.HasMoreResults ? nextPageResults.ResponseContinuation : null);
+            if (!query.HasMoreResults)
+                DeletePagingContext(query);
+
+            return new DocumentsPage<R>(nextPageResults, query.HasMoreResults ? nextPageResponse.ResponseContinuation : null);
         }
 
         /// <summary>
@@ -151,10 +172,10 @@ namespace Microsoft.Azure.Documents
 
             while (query.HasMoreResults)
             {
-                FeedResponse<R> intermediateResults = null;
+                FeedResponse<R> intermediateResponse = null;
                 try
                 {
-                    intermediateResults = await DocumentDbReliableExecution.ExecuteResultWithRetry(() =>
+                    intermediateResponse = await DocumentDbReliableExecution.ExecuteResultWithRetry(() =>
                     query.ExecuteNextAsync<R>(),
                     null,
                     maxRetries,
@@ -174,8 +195,9 @@ namespace Microsoft.Azure.Documents
                 }
 
                 // lots of interesting info in intermediateResults such as RU usage, etc.
-                UpdateContext<R>(context, intermediateResults);
-                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
+                List<R> intermediateResults = intermediateResponse.ToList();
+                UpdateContext<R>(context, intermediateResponse, JsonConvert.SerializeObject(intermediateResults).Length, query.HasMoreResults);
+                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResponse));
 
                 allResults.AddRange(intermediateResults);
             }
@@ -246,11 +268,12 @@ namespace Microsoft.Azure.Documents
                         break;
                 }
 
-                var intermediateResults = t.Result;
+                var intermediateResponse = t.Result;
 
                 // lots of interesting info in intermediateResults such as RU usage, etc.
-                UpdateContext<R>(context, intermediateResults);
-                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
+                List<R> intermediateResults = intermediateResponse.ToList();
+                UpdateContext<R>(context, intermediateResponse, JsonConvert.SerializeObject(intermediateResults).Length, query.HasMoreResults);
+                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResponse));
 
                 foreach (var result in intermediateResults)
                 {
@@ -302,13 +325,13 @@ namespace Microsoft.Azure.Documents
 
             var allResults = new List<R>();
 
-            FeedResponse<R> intermediateResults = null;
+            FeedResponse<R> intermediateResponse = null;
             do
             {
                 try
                 {
-                    intermediateResults = await DocumentDbReliableExecution.ExecuteResultWithRetry(() =>
-                    feedTakingContinuation(intermediateResults?.ResponseContinuation),
+                    intermediateResponse = await DocumentDbReliableExecution.ExecuteResultWithRetry(() =>
+                    feedTakingContinuation(intermediateResponse?.ResponseContinuation),
                     null,
                     maxRetries,
                     maxTime,
@@ -327,12 +350,13 @@ namespace Microsoft.Azure.Documents
                 }
 
                 // lots of interesting info in intermediateResults such as RU usage, etc.
-                UpdateContext<R>(context, intermediateResults);
-                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
+                List<R> intermediateResults = intermediateResponse.ToList();
+                UpdateContext<R>(context, intermediateResponse, JsonConvert.SerializeObject(intermediateResults).Length, !string.IsNullOrEmpty(intermediateResponse.ResponseContinuation));
+                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResponse));
 
                 allResults.AddRange(intermediateResults);
 
-            } while (!string.IsNullOrEmpty(intermediateResults.ResponseContinuation));
+            } while (!string.IsNullOrEmpty(intermediateResponse.ResponseContinuation));
 
             feedResponseHandler(context, FeedResponseType.AfterEnumeration, null);
 
@@ -378,14 +402,14 @@ namespace Microsoft.Azure.Documents
 
             feedResponseHandler(context, FeedResponseType.BeforeEnumeration, null);
 
-            FeedResponse<R> intermediateResults = null;
+            FeedResponse<R> intermediateResponse = null;
             do
             {
                 Task<FeedResponse<R>> t;
                 try
                 {
                     t = Task.Run(async () => await ExecuteResultWithRetry(() =>
-                        feedTakingContinuation(intermediateResults?.ResponseContinuation),
+                        feedTakingContinuation(intermediateResponse?.ResponseContinuation),
                         null,
                         maxRetries,
                         maxTime,
@@ -407,18 +431,19 @@ namespace Microsoft.Azure.Documents
                         break;
                 }
 
-                intermediateResults = t.Result;
+                intermediateResponse = t.Result;
 
                 // lots of interesting info in intermediateResults such as RU usage, etc.
-                UpdateContext<R>(context, intermediateResults);
-                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
+                List<R> intermediateResults = intermediateResponse.ToList();
+                UpdateContext<R>(context, intermediateResponse, JsonConvert.SerializeObject(intermediateResults).Length, !string.IsNullOrEmpty(intermediateResponse.ResponseContinuation));
+                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResponse));
 
                 foreach (var result in intermediateResults)
                 {
                     yield return result;
                 }
 
-            } while (!string.IsNullOrEmpty(intermediateResults.ResponseContinuation));
+            } while (!string.IsNullOrEmpty(intermediateResponse.ResponseContinuation));
 
             feedResponseHandler(context, FeedResponseType.AfterEnumeration, null);
         }
