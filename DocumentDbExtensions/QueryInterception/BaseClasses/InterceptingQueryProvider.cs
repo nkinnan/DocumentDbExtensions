@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Azure.Documents.Client;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -17,13 +18,6 @@ namespace Microsoft.Azure.Documents
         {
             this.underlyingProvider = underlyingProvider;
             this.visitors = visitors;
-        }
-
-        /// <summary>
-        /// Only meant for use by CreateQueryForPagingContinuationOnly
-        /// </summary>
-        protected InterceptingQueryProvider()
-        {
         }
 
         public virtual IQueryable<TElement> CreateQuery<TElement>(Expression expression)

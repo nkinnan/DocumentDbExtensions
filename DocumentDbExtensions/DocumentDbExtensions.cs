@@ -27,14 +27,14 @@ namespace Microsoft.Azure.Documents
     /// NULL for "don't retry" in which case a DocumentDbRetriesExceeded exception will be thrown, wrapping the original exception,
     /// otherwise the TimeSpan to wait for before making the next attempt, normally retrieved from the DocumentDB response.
     /// </returns>
-    public delegate TimeSpan ShouldRetry(Exception exception);
+    public delegate TimeSpan ShouldRetry(FeedResponseContext context, Exception exception);
 
     /// <summary>
     /// When intercepting or paging a query, this handler will be called before execution with the full Linq expression / DocumentDB SQL 
     /// expression that is about to be executed.
     /// </summary>
     /// <param name="query"></param>
-    public delegate void QueryExecutionHandler(string query);
+    public delegate void QueryExecutionHandler(FeedResponseContext context, string query);
 
     /// <summary>
     /// When intercepting a query, or using one of the reliable query execution methods, results are retrieved in "pages".  It is 
@@ -54,7 +54,7 @@ namespace Microsoft.Azure.Documents
     /// Whether the exception was handled.  If false, the original exception will be rethrown from its original context.  If true, the exception 
     /// will be swallowed on the assumption that you have logged or otherwise handled it and a partial (or empty) result set will be returned.
     /// </returns>
-    public delegate bool EnumerationExceptionHandler(Exception exception);
+    public delegate bool EnumerationExceptionHandler(FeedResponseContext context, Exception exception);
 
     /// <summary>
     /// When intercepting a query, or using one of the reliable query execution methods, results are retrieved in "pages".  While
@@ -62,9 +62,10 @@ namespace Microsoft.Azure.Documents
     /// each DocumentDB FeedResponse as it comes through "behind the scenes".  Things like resource usage for example may be useful 
     /// to log.
     /// </summary>
+    /// <param name="context"></param>
     /// <param name="type"></param>
     /// <param name="feedResponse"></param>
-    public delegate void FeedResponseHandler(FeedResponseType type, IFeedResponse feedResponse);
+    public delegate void FeedResponseHandler(FeedResponseContext context, FeedResponseType type, IFeedResponse feedResponse);
 
     /// <summary>
     /// When executing with retry, a document db client method, the resource response may be passed back to you.  Things like resource 
@@ -137,10 +138,13 @@ namespace Microsoft.Azure.Documents
         #region implementation of default handlers
         /// <summary>
         /// The implementation of the default ShouldRetry logic, this is assigned to "DefaultShouldRetry" by default.
+        /// Please note that context is only available when executing a feed (a Linq or SQL text query) including the default
+        /// enumeration handler, but not for example if an exception is generated from an ExecuteResult...() call.
         /// </summary>
+        /// <param name="context"></param>
         /// <param name="exception"></param>
         /// <returns></returns>
-        public static TimeSpan DefaultShouldRetryLogicImplementation(Exception exception)
+        public static TimeSpan DefaultShouldRetryLogicImplementation(FeedResponseContext context, Exception exception)
         {
             HttpStatusCode statusCode = (HttpStatusCode)(-1);
 
@@ -160,16 +164,15 @@ namespace Microsoft.Azure.Documents
                         return documentClientException.RetryAfter;
                     }
 
-                    // special case non-retriable (conflict)
-                    if(statusCode == HttpStatusCode.Conflict)
+                    // special case non-retriable (etag)
+                    if(statusCode == HttpStatusCode.PreconditionFailed)
                     {
                         // note: inherits DocumentDbNonRetriableResponse
                         throw new DocumentDbConflictResponse("Conflict on write. This is recoverable but not retriable (" + statusCode + ").", exception);
                     }
 
                     // expected non-retriable codes
-                    if (statusCode == HttpStatusCode.PreconditionFailed || 
-                        statusCode == HttpStatusCode.NotFound ||
+                    if (statusCode == HttpStatusCode.NotFound ||
                         statusCode == HttpStatusCode.Conflict ||
                         statusCode == HttpStatusCode.BadRequest)
                     {
@@ -188,7 +191,7 @@ namespace Microsoft.Azure.Documents
                 throw new DocumentDbNonRetriableResponse("Exception from DocumentDB client indicates it cannot parse your Linq expression. This may be because you used a ternary similar to: (myLocalNullable ? myLocalNullable.Value : <etc>). Note that the DocumentDB client libs must evaluate every portion of the expression tree in order to translate it to a DocDB SQL query, like a compiler, even when the path is not expected to be followed in practice at runtime. You can fix this by saying instead: (myLocalNullable ? myLocalNullable : <etc>) which omits the '.Value' and should cause the expression tree visitor to emit a literal 'null' constant which will never be evaluated against.", exception);
             }
 
-            throw new DocumentDbUnexpectedResponse("Unable to interpret response from DocumentDB client in order to determine if retry should happen (" + (statusCode == (HttpStatusCode)(-1) ? "Bare exception thrown by DocumentDB client library, no status code available." : statusCode.ToString()) + ").", exception);
+            throw new DocumentDbUnexpectedResponse("Unable to interpret response from DocumentDB client in order to determine if retry should happen (" + (statusCode == (HttpStatusCode)(-1) ? "Bare exception thrown by DocumentDB client library, no status code available, message: " + (exception.Message) : statusCode.ToString()) + ").", exception);
         }
 
         /// <summary>
@@ -198,7 +201,7 @@ namespace Microsoft.Azure.Documents
         /// </summary>
         /// <param name="query"></param>
         /// <returns></returns>
-        public static void DefaultQueryExecutionHandlerImplementation(string query)
+        public static void DefaultQueryExecutionHandlerImplementation(FeedResponseContext context, string query)
         {
             // intentionally left blank
         }
@@ -210,7 +213,7 @@ namespace Microsoft.Azure.Documents
         /// </summary>
         /// <param name="exception"></param>
         /// <returns></returns>
-        public static bool DefaultEnumerationExceptionHandlerImplementation(Exception exception)
+        public static bool DefaultEnumerationExceptionHandlerImplementation(FeedResponseContext context, Exception exception)
         {
             return false;
         }
@@ -221,7 +224,7 @@ namespace Microsoft.Azure.Documents
         /// This implementation does nothing.
         /// </summary>
         /// <returns></returns>
-        public static void DefaultFeedResponseHandlerImplementation(FeedResponseType type, IFeedResponse feedResponse)
+        public static void DefaultFeedResponseHandlerImplementation(FeedResponseContext context, FeedResponseType type, IFeedResponse feedResponse)
         {
             // intentionally left blank
         }
@@ -280,16 +283,15 @@ namespace Microsoft.Azure.Documents
         /// <param name="queryExecutionHandler"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="feedResponseHandler"></param>
-        /// <param name="resourceResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static IQueryable<TElement> InterceptQuery<TElement>(IQueryable<TElement> underlyingQuery, QueryExecutionHandler queryExecutionHandler = null, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static IQueryable<TElement> InterceptQuery<TElement>(IQueryable<TElement> underlyingQuery, QueryExecutionHandler queryExecutionHandler = null, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
             if (underlyingQuery == null)
                 throw new ArgumentException("underlyingQuery");
-            return DocumentDbTranslatingReliableQueryProvider.Intercept(underlyingQuery, queryExecutionHandler ?? DefaultQueryExecutionHandlerImplementation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            return DocumentDbTranslatingReliableQueryProvider.Intercept(underlyingQuery, queryExecutionHandler ?? DefaultQueryExecutionHandlerImplementation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
         }
 
         /// <summary>
@@ -297,11 +299,12 @@ namespace Microsoft.Azure.Documents
         /// original IQueryable instance, as long as you still have the continuationToken.  If the original IQueryable created via
         /// InterceptQuery() is still around, you can simply call GetNextPage() with no parameters instead, as the continuations will
         /// be tracked internally to that instance.
+        /// 
+        /// ***When re-creating the underlyingQuery to pass to this method, it must be created the same way as the original, with the same
+        /// linq clauses, or SQL query string, and the RequestContinuation property of the FeedOptions must have been set appropriately***
         /// </summary>
         /// <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
-        /// <param name="client">The DocumentClient to be used to re-create the paging context.</param>
-        /// <param name="collectionUri">The DocumentCollection URI to be used to re-create the paging context.  Should match the DocumentCollection used to create the original IQueryable.</param>
-        /// <param name="feedOptions">Any FeedOptions to be used to re-create the paging context.  Should match the FeedOptions used to create the original IQueryable.</param>
+        /// <param name="underlyingQuery"></param>
         /// <param name="queryExecutionHandler"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="feedResponseHandler"></param>
@@ -310,15 +313,11 @@ namespace Microsoft.Azure.Documents
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
         /// <returns></returns>
-        public static IQueryable<TElement> CreateQueryForPagingContinuationOnly<TElement>(DocumentClient client, Uri collectionUri, FeedOptions feedOptions, QueryExecutionHandler queryExecutionHandler = null, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, ResourceResponseHandler resourceResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
+        public static IQueryable<TElement> InterceptQueryForPagingContinuationOnly<TElement>(IQueryable<TElement> underlyingQuery, QueryExecutionHandler queryExecutionHandler = null, EnumerationExceptionHandler enumerationExceptionHandler = null, FeedResponseHandler feedResponseHandler = null, int? maxRetries = null, TimeSpan? maxTime = null, ShouldRetry shouldRetry = null)
         {
-            if (client == null)
-                throw new ArgumentException("client");
-            if (collectionUri == null)
-                throw new ArgumentException("collectionUri");
-            if (feedOptions == null)
-                throw new ArgumentException("feedOptions");
-            return DocumentDbTranslatingReliableQueryProvider.CreateForPagingContinuationOnly<TElement>(client, collectionUri, feedOptions, queryExecutionHandler ?? DefaultQueryExecutionHandlerImplementation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, resourceResponseHandler ?? DefaultResourceResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
+            if (underlyingQuery == null)
+                throw new ArgumentException("underlyingQuery");
+            return DocumentDbTranslatingReliableQueryProvider.InterceptForPagingContinuationOnly(underlyingQuery, queryExecutionHandler ?? DefaultQueryExecutionHandlerImplementation, enumerationExceptionHandler ?? DefaultEnumerationExceptionHandler, feedResponseHandler ?? DefaultFeedResponseHandler, maxRetries ?? DefaultMaxRetryCount, maxTime ?? DefaultMaxRetryTime, shouldRetry ?? DefaultShouldRetryLogic);
         }
         #endregion query interception
 
@@ -572,8 +571,9 @@ namespace Microsoft.Azure.Documents
         /// 
         /// Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
         /// </summary>
-        /// <param name="action"></param>
-        /// <param name="resourceResponseHandler"></param>
+        /// <param name="feedTakingContinuation"></param>
+        /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
@@ -597,8 +597,9 @@ namespace Microsoft.Azure.Documents
         /// 
         /// Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
         /// </summary>
-        /// <param name="action"></param>
-        /// <param name="resourceResponseHandler"></param>
+        /// <param name="feedTakingContinuation"></param>
+        /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
@@ -622,8 +623,9 @@ namespace Microsoft.Azure.Documents
         /// 
         /// Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
         /// </summary>
-        /// <param name="action"></param>
-        /// <param name="resourceResponseHandler"></param>
+        /// <param name="feedTakingContinuation"></param>
+        /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
@@ -647,8 +649,9 @@ namespace Microsoft.Azure.Documents
         /// 
         /// Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
         /// </summary>
-        /// <param name="action"></param>
-        /// <param name="resourceResponseHandler"></param>
+        /// <param name="feedTakingContinuation"></param>
+        /// <param name="enumerationExceptionHandler"></param>
+        /// <param name="feedResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>

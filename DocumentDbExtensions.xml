@@ -148,6 +148,7 @@
             each DocumentDB FeedResponse as it comes through "behind the scenes".  Things like resource usage for example may be useful 
             to log.
             </summary>
+            <param name="context"></param>
             <param name="type"></param>
             <param name="feedResponse"></param>
         </member>
@@ -217,14 +218,14 @@
             If you set this, it will apply to all future calls into DocumentDbExtensions which do not override the value.
             </summary>
         </member>
-        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultShouldRetryLogicImplementation(System.Exception)">
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultShouldRetryLogicImplementation(Microsoft.Azure.Documents.FeedResponseContext,System.Exception)">
             <summary>
             The implementation of the default ShouldRetry logic, this is assigned to "DefaultShouldRetry" by default.
             </summary>
             <param name="exception"></param>
             <returns></returns>
         </member>
-        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultQueryExecutionHandlerImplementation(System.String)">
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultQueryExecutionHandlerImplementation(Microsoft.Azure.Documents.FeedResponseContext,System.String)">
             <summary>
             The implementation of the default QueryExecutionHandler logic, this is assigned to "DefaultQueryExecutionHandler" by default.
             
@@ -233,7 +234,7 @@
             <param name="query"></param>
             <returns></returns>
         </member>
-        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultEnumerationExceptionHandlerImplementation(System.Exception)">
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultEnumerationExceptionHandlerImplementation(Microsoft.Azure.Documents.FeedResponseContext,System.Exception)">
             <summary>
             The implementation of the default EnumerationExceptionHandler logic, this is assigned to "DefaultEnumerationExceptionHandler" by default.
             
@@ -242,7 +243,7 @@
             <param name="exception"></param>
             <returns></returns>
         </member>
-        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultFeedResponseHandlerImplementation(Microsoft.Azure.Documents.FeedResponseType,Microsoft.Azure.Documents.IFeedResponse)">
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.DefaultFeedResponseHandlerImplementation(Microsoft.Azure.Documents.FeedResponseContext,Microsoft.Azure.Documents.FeedResponseType,Microsoft.Azure.Documents.IFeedResponse)">
             <summary>
             The implementation of the default FeedResponseHandler logic, this is assigned to "DefaultFeedResponseHandler" by default.
             
@@ -266,7 +267,7 @@
             <param name="exception"></param>
             <returns></returns>
         </member>
-        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.InterceptQuery``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.QueryExecutionHandler,Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,Microsoft.Azure.Documents.ResourceResponseHandler,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.InterceptQuery``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.QueryExecutionHandler,Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
             <summary>
             To gain the advantage of the query translator (allows you to use things like DateTime and DateTimeOffset in queries) plus
             reliable execution, you must intercept the IQueryable returned by the DocumentDB Client by calling this method on it BEFORE 
@@ -281,23 +282,23 @@
             <param name="queryExecutionHandler"></param>
             <param name="enumerationExceptionHandler"></param>
             <param name="feedResponseHandler"></param>
-            <param name="resourceResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
             <returns></returns>
         </member>
-        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.CreateQueryForPagingContinuationOnly``1(Microsoft.Azure.Documents.Client.DocumentClient,System.Uri,Microsoft.Azure.Documents.Client.FeedOptions,Microsoft.Azure.Documents.QueryExecutionHandler,Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,Microsoft.Azure.Documents.ResourceResponseHandler,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
+        <member name="M:Microsoft.Azure.Documents.DocumentDbExtensions.InterceptQueryForPagingContinuationOnly``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.QueryExecutionHandler,Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Nullable{System.Int32},System.Nullable{System.TimeSpan},Microsoft.Azure.Documents.ShouldRetry)">
             <summary>
             This method will create an IQuerable which allows you to call GetNextPage(continuationToken) even after having "lost" the
             original IQueryable instance, as long as you still have the continuationToken.  If the original IQueryable created via
             InterceptQuery() is still around, you can simply call GetNextPage() with no parameters instead, as the continuations will
             be tracked internally to that instance.
+            
+            ***When re-creating the underlyingQuery to pass to this method, it must be created the same way as the original, with the same
+            linq clauses, or SQL query string, and the RequestContinuation property of the FeedOptions must have been set appropriately***
             </summary>
             <typeparam name="TElement">The type of the elements returned by the query.</typeparam>
-            <param name="client">The DocumentClient to be used to re-create the paging context.</param>
-            <param name="collectionUri">The DocumentCollection URI to be used to re-create the paging context.  Should match the DocumentCollection used to create the original IQueryable.</param>
-            <param name="feedOptions">Any FeedOptions to be used to re-create the paging context.  Should match the FeedOptions used to create the original IQueryable.</param>
+            <param name="underlyingQuery"></param>
             <param name="queryExecutionHandler"></param>
             <param name="enumerationExceptionHandler"></param>
             <param name="feedResponseHandler"></param>
@@ -492,8 +493,9 @@
             
             Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
             </summary>
-            <param name="action"></param>
-            <param name="resourceResponseHandler"></param>
+            <param name="feedTakingContinuation"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -512,8 +514,9 @@
             
             Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
             </summary>
-            <param name="action"></param>
-            <param name="resourceResponseHandler"></param>
+            <param name="feedTakingContinuation"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -532,8 +535,9 @@
             
             Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
             </summary>
-            <param name="action"></param>
-            <param name="resourceResponseHandler"></param>
+            <param name="feedTakingContinuation"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -552,8 +556,9 @@
             
             Example: "ExecuteResultWithRetry((continuation) => { feedOptions.RequestContinuation = continuation; YourCallHere(arguments, will, be, closured, feedOptions));"
             </summary>
-            <param name="action"></param>
-            <param name="resourceResponseHandler"></param>
+            <param name="feedTakingContinuation"></param>
+            <param name="enumerationExceptionHandler"></param>
+            <param name="feedResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -618,6 +623,18 @@
             </summary>
             <param name="message"></param>
             <param name="inner"></param>
+        </member>
+        <member name="T:Microsoft.Azure.Documents.FeedResponseContext">
+            <summary>
+            This provides a constant instance across all invocations of FeedResponseHandler on a per-query basis
+            and aggregates totals.  It can be used to maintain context across calls when overriding the default
+            feed response handler.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Azure.Documents.FeedResponseContext.UserContext">
+            <summary>
+            User may record their own context here, the library will not touch this field.
+            </summary>
         </member>
         <member name="T:Microsoft.Azure.Documents.FeedResponseType">
             <summary>
@@ -791,11 +808,6 @@
             Allows evaluation of IQueryables to be "hooked" in conjunction with InterceptingQuery.
             </summary>
         </member>
-        <member name="M:Microsoft.Azure.Documents.InterceptingQueryProvider.#ctor">
-            <summary>
-            Only meant for use by CreateQueryForPagingContinuationOnly
-            </summary>
-        </member>
         <member name="M:Microsoft.Azure.Documents.DocumentDbTranslateExpressionVisitor.VisitBinary(System.Linq.Expressions.BinaryExpression)">
             <summary>
             This method will be called for every binary expression in the expression tree.  We evaluate the node and 
@@ -826,7 +838,7 @@
             <param name="node"></param>
             <returns></returns>
         </member>
-        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.Intercept``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.QueryExecutionHandler,Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,Microsoft.Azure.Documents.ResourceResponseHandler,System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.Intercept``1(System.Linq.IQueryable{``0},Microsoft.Azure.Documents.QueryExecutionHandler,Microsoft.Azure.Documents.EnumerationExceptionHandler,Microsoft.Azure.Documents.FeedResponseHandler,System.Int32,System.TimeSpan,Microsoft.Azure.Documents.ShouldRetry)">
             <summary>
             Begins interception of query evaluation, wraps the passed in IQueryable
             </summary>
@@ -835,6 +847,7 @@
             <param name="queryExecutionHandler"></param>
             <param name="enumerationExceptionHandler"></param>
             <param name="feedResponseHandler"></param>
+            <param name="resourceResponseHandler"></param>
             <param name="maxRetries"></param>
             <param name="maxTime"></param>
             <param name="shouldRetry"></param>
@@ -863,19 +876,11 @@
             <param name="expression"></param>
             <returns></returns>
         </member>
-        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.GetNextPageAsync``1">
+        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.GetNextPageAsync``1(System.Linq.Expressions.Expression)">
             <summary>
             Used if you're keeping the IQueryable (and thus this provider) around, continuation is tracked internally to the query
             </summary>
             <typeparam name="TElement"></typeparam>
-            <returns></returns>
-        </member>
-        <member name="M:Microsoft.Azure.Documents.DocumentDbTranslatingReliableQueryProvider.GetNextPageAsync``1(System.String)">
-            <summary>
-            Used if you're re-creating the IQueryable for the purposes of next-page only, in this case you must track the continuation
-            </summary>
-            <typeparam name="TElement"></typeparam>
-            <param name="continuationToken"></param>
             <returns></returns>
         </member>
         <member name="T:Microsoft.Azure.Documents.DocumentsPage`1">
@@ -936,24 +941,6 @@
             <typeparam name="T">Returned type</typeparam>
             <param name="query">Instance of IQueryable to operate on</param>
             <returns>The first page of results</returns>
-        </member>
-        <member name="M:Microsoft.Azure.Documents.PagingIQueryableExtensions.GetNextPage``1(System.Linq.IQueryable{``0},System.String)">
-            <summary>
-            Gets the next page of query results
-            </summary>
-            <typeparam name="T">Returned type</typeparam>
-            <param name="query">Instance of IQueryable to operate on</param>
-            <param name="continuationToken">The continuation token to use</param>
-            <returns>The next page of results</returns>
-        </member>
-        <member name="M:Microsoft.Azure.Documents.PagingIQueryableExtensions.GetNextPageAsync``1(System.Linq.IQueryable{``0},System.String)">
-            <summary>
-            Gets the next page of query results
-            </summary>
-            <typeparam name="T">Returned type</typeparam>
-            <param name="query">Instance of IQueryable to operate on</param>
-            <param name="continuationToken">The continuation token to use</param>
-            <returns>The next page of results</returns>
         </member>
         <member name="M:Microsoft.Azure.Documents.PagingIQueryableExtensions.GetNextPage``1(System.Linq.IQueryable{``0})">
             <summary>

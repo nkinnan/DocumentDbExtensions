@@ -55,7 +55,7 @@ namespace ExampleODataFromDocumentDb.Controllers
             await EnsureClientIsConnected();
 
             // configure the wrapped queryable to translate exceptions on enumeration (normally you would log this as well) 
-            EnumerationExceptionHandler enumerationExceptionHandler = (Exception exception) =>
+            EnumerationExceptionHandler enumerationExceptionHandler = (FeedResponseContext context, Exception exception) =>
             {
                 throw new HttpResponseException(new HttpResponseMessage()
                 {

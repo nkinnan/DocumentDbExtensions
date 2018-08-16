@@ -12,11 +12,34 @@ namespace Microsoft.Azure.Documents
     {
         internal const string BadQueryableMessage = "Queryable does not appear to be from DocumentDB, did you perhaps pass a queryable that was already intercepted by this library to an execute call which is meant for unwrapped DocumentDB queryables?  If so, you can simply call .ToArray() or equivalent since you already have a 'safe' wrapped queryable.  The main reason to use an un-wrapped DocumentDB queryable and then call one of the execute methods meant for bare DocumentDB queryables is to be able to get the results using an async Task<> since queryables do not support asyncronous execution.  Note however that this means results won't be paged/streamed in but fully streamed into memory before the async execute method returns.";
 
+        private static Dictionary<object, FeedResponseContext> PagingContext = new Dictionary<object, FeedResponseContext>();
+
+        private static FeedResponseContext MakeFirstContextForPaging(object key)
+        {
+            var frc = new FeedResponseContext();
+            PagingContext.Add(key, frc);
+            return frc;
+        }
+
+        private static FeedResponseContext GetContextForPaging(object key)
+        {
+            var frc = PagingContext[key];
+            return frc;
+        }
+
+        private static void UpdateContext<R>(FeedResponseContext context, FeedResponse<R> response)
+        {
+            context.TotalCount += response.Count;
+            context.TotalRequestCharge += response.RequestCharge;
+        }
+
         internal static async Task<DocumentsPage<R>> BeginPagingWithRetry<R>(IDocumentQuery<R> query, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
-            queryExecutionHandler(query.ToString());
+            var context = MakeFirstContextForPaging(query);
 
-            feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
+            queryExecutionHandler(context, query.ToString());
+
+            feedResponseHandler(context, FeedResponseType.BeforeEnumeration, null);
 
             FeedResponse<R> firstPageResults = null;
             while (firstPageResults == null)
@@ -32,23 +55,26 @@ namespace Microsoft.Azure.Documents
                 }
                 catch (Exception ex)
                 {
-                    bool handled = enumerationExceptionHandler(ex);
+                    bool handled = enumerationExceptionHandler(context, ex);
                     if (!handled)
                     {
-                        feedResponseHandler(FeedResponseType.EnumerationAborted, null);
+                        feedResponseHandler(context, FeedResponseType.EnumerationAborted, null);
                         throw;
                     }
                 }
             }
 
             // lots of interesting info in intermediateResults such as RU usage, etc.
-            feedResponseHandler(FeedResponseType.PageReceived, new FeedResponseWrapper<R>(firstPageResults));
+            UpdateContext<R>(context, firstPageResults);
+            feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(firstPageResults));
 
             return new DocumentsPage<R>(firstPageResults.ToList(), firstPageResults.ResponseContinuation);
         }
 
         internal static async Task<DocumentsPage<R>> GetNextPageWithRetry<R>(IDocumentQuery<R> query, QueryExecutionHandler queryExecutionHandler, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
+            var context = GetContextForPaging(query);
+
             FeedResponse<R> nextPageResults = null;
             while (nextPageResults == null)
             {
@@ -63,21 +89,26 @@ namespace Microsoft.Azure.Documents
                 }
                 catch (Exception ex)
                 {
-                    bool handled = enumerationExceptionHandler(ex);
+                    bool handled = enumerationExceptionHandler(context, ex);
                     if (!handled)
                     {
-                        feedResponseHandler(FeedResponseType.EnumerationAborted, null);
+                        feedResponseHandler(context, FeedResponseType.EnumerationAborted, null);
+                        if (ex.Message.StartsWith("Invalid Continuation Token"))
+                        {
+                            throw new DocumentDbNonRetriableResponse("Unable to continue paging, this probably means that the queryable used for GetNextPage did not represent an identical query to that which was used to get the continuation token.", ex);
+                        }
                         throw;
                     }
                 }
             }
 
             // lots of interesting info in intermediateResults such as RU usage, etc.
-            feedResponseHandler(FeedResponseType.PageReceived, new FeedResponseWrapper<R>(nextPageResults));
+            UpdateContext<R>(context, nextPageResults);
+            feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(nextPageResults));
 
             if (!query.HasMoreResults)
             {
-                feedResponseHandler(FeedResponseType.AfterEnumeration, null);
+                feedResponseHandler(context, FeedResponseType.AfterEnumeration, null);
             }
 
             return new DocumentsPage<R>(nextPageResults.ToList(), query.HasMoreResults ? nextPageResults.ResponseContinuation : null);
@@ -110,9 +141,11 @@ namespace Microsoft.Azure.Documents
                 throw new ArgumentException(BadQueryableMessage, e);
             }
 
-            queryExecutionHandler(query.ToString());
+            var context = new FeedResponseContext();
 
-            feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
+            queryExecutionHandler(context, query.ToString());
+
+            feedResponseHandler(context, FeedResponseType.BeforeEnumeration, null);
 
             var allResults = new List<R>();
 
@@ -130,10 +163,10 @@ namespace Microsoft.Azure.Documents
                 }
                 catch (Exception ex)
                 {
-                    bool handled = enumerationExceptionHandler(ex);
+                    bool handled = enumerationExceptionHandler(context, ex);
                     if (!handled)
                     {
-                        feedResponseHandler(FeedResponseType.EnumerationAborted, null);
+                        feedResponseHandler(context, FeedResponseType.EnumerationAborted, null);
                         throw;
                     }
                     else
@@ -141,12 +174,13 @@ namespace Microsoft.Azure.Documents
                 }
 
                 // lots of interesting info in intermediateResults such as RU usage, etc.
-                feedResponseHandler(FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
+                UpdateContext<R>(context, intermediateResults);
+                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
 
                 allResults.AddRange(intermediateResults);
             }
 
-            feedResponseHandler(FeedResponseType.AfterEnumeration, null);
+            feedResponseHandler(context, FeedResponseType.AfterEnumeration, null);
 
             return allResults;
         }
@@ -178,9 +212,11 @@ namespace Microsoft.Azure.Documents
                 throw new ArgumentException(BadQueryableMessage, e);
             }
 
-            queryExecutionHandler(query.ToString());
+            var context = new FeedResponseContext();
 
-            feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
+            queryExecutionHandler(context, query.ToString());
+
+            feedResponseHandler(context, FeedResponseType.BeforeEnumeration, null);
 
             while (query.HasMoreResults)
             {
@@ -200,10 +236,10 @@ namespace Microsoft.Azure.Documents
                 {
                     // note: if an IQueryable is returned to OData, throwing an exception here will cause it to take down w3wp.exe 
 
-                    bool handled = enumerationExceptionHandler(ex);
+                    bool handled = enumerationExceptionHandler(context, ex);
                     if (!handled)
                     {
-                        feedResponseHandler(FeedResponseType.EnumerationAborted, null);
+                        feedResponseHandler(context, FeedResponseType.EnumerationAborted, null);
                         throw;
                     }
                     else
@@ -213,7 +249,8 @@ namespace Microsoft.Azure.Documents
                 var intermediateResults = t.Result;
 
                 // lots of interesting info in intermediateResults such as RU usage, etc.
-                feedResponseHandler(FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
+                UpdateContext<R>(context, intermediateResults);
+                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
 
                 foreach (var result in intermediateResults)
                 {
@@ -221,7 +258,7 @@ namespace Microsoft.Azure.Documents
                 }
             }
 
-            feedResponseHandler(FeedResponseType.AfterEnumeration, null);
+            feedResponseHandler(context, FeedResponseType.AfterEnumeration, null);
         }
 
         /// <summary>
@@ -259,7 +296,9 @@ namespace Microsoft.Azure.Documents
         /// <returns></returns>
         public static async Task<IList<R>> ExecuteFeedWithContinuationAndRetry<R>(Func<string, Task<FeedResponse<R>>> feedTakingContinuation, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
-            feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
+            var context = new FeedResponseContext();
+
+            feedResponseHandler(context, FeedResponseType.BeforeEnumeration, null);
 
             var allResults = new List<R>();
 
@@ -277,10 +316,10 @@ namespace Microsoft.Azure.Documents
                 }
                 catch (Exception ex)
                 {
-                    bool handled = enumerationExceptionHandler(ex);
+                    bool handled = enumerationExceptionHandler(null, ex);
                     if (!handled)
                     {
-                        feedResponseHandler(FeedResponseType.EnumerationAborted, null);
+                        feedResponseHandler(context, FeedResponseType.EnumerationAborted, null);
                         throw;
                     }
                     else
@@ -288,13 +327,14 @@ namespace Microsoft.Azure.Documents
                 }
 
                 // lots of interesting info in intermediateResults such as RU usage, etc.
-                feedResponseHandler(FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
+                UpdateContext<R>(context, intermediateResults);
+                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
 
                 allResults.AddRange(intermediateResults);
 
             } while (!string.IsNullOrEmpty(intermediateResults.ResponseContinuation));
 
-            feedResponseHandler(FeedResponseType.AfterEnumeration, null);
+            feedResponseHandler(context, FeedResponseType.AfterEnumeration, null);
 
             return allResults;
         }
@@ -334,7 +374,9 @@ namespace Microsoft.Azure.Documents
         /// <returns></returns>
         public static IEnumerable<R> StreamFeedWithContinuationAndRetry<R>(Func<string, Task<FeedResponse<R>>> feedTakingContinuation, EnumerationExceptionHandler enumerationExceptionHandler, FeedResponseHandler feedResponseHandler, int maxRetries, TimeSpan maxTime, ShouldRetry shouldRetry)
         {
-            feedResponseHandler(FeedResponseType.BeforeEnumeration, null);
+            var context = new FeedResponseContext();
+
+            feedResponseHandler(context, FeedResponseType.BeforeEnumeration, null);
 
             FeedResponse<R> intermediateResults = null;
             do
@@ -355,10 +397,10 @@ namespace Microsoft.Azure.Documents
                 {
                     // note: if an IQueryable is returned to OData, throwing an exception here will cause it to take down w3wp.exe 
 
-                    bool handled = enumerationExceptionHandler(ex);
+                    bool handled = enumerationExceptionHandler(null, ex);
                     if (!handled)
                     {
-                        feedResponseHandler(FeedResponseType.EnumerationAborted, null);
+                        feedResponseHandler(context, FeedResponseType.EnumerationAborted, null);
                         throw;
                     }
                     else
@@ -368,7 +410,8 @@ namespace Microsoft.Azure.Documents
                 intermediateResults = t.Result;
 
                 // lots of interesting info in intermediateResults such as RU usage, etc.
-                feedResponseHandler(FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
+                UpdateContext<R>(context, intermediateResults);
+                feedResponseHandler(context, FeedResponseType.PageReceived, new FeedResponseWrapper<R>(intermediateResults));
 
                 foreach (var result in intermediateResults)
                 {
@@ -377,7 +420,7 @@ namespace Microsoft.Azure.Documents
 
             } while (!string.IsNullOrEmpty(intermediateResults.ResponseContinuation));
 
-            feedResponseHandler(FeedResponseType.AfterEnumeration, null);
+            feedResponseHandler(context, FeedResponseType.AfterEnumeration, null);
         }
 
         /// <summary>
@@ -492,7 +535,7 @@ namespace Microsoft.Azure.Documents
 
                     try
                     {
-                        retryDelay = shouldRetry(clientException);
+                        retryDelay = shouldRetry(null, clientException);
                     }
                     catch (DocumentDbConflictResponse)
                     {

@@ -47,36 +47,6 @@ namespace Microsoft.Azure.Documents
         /// </summary>
         /// <typeparam name="T">Returned type</typeparam>
         /// <param name="query">Instance of IQueryable to operate on</param>
-        /// <param name="continuationToken">The continuation token to use</param>
-        /// <returns>The next page of results</returns>
-        public static DocumentsPage<T> GetNextPage<T>(this IQueryable<T> query, string continuationToken)
-        {
-            return GetNextPageAsync(query, continuationToken).Result;
-        }
-
-        /// <summary>
-        /// Gets the next page of query results
-        /// </summary>
-        /// <typeparam name="T">Returned type</typeparam>
-        /// <param name="query">Instance of IQueryable to operate on</param>
-        /// <param name="continuationToken">The continuation token to use</param>
-        /// <returns>The next page of results</returns>
-        public static async Task<DocumentsPage<T>> GetNextPageAsync<T>(this IQueryable<T> query, string continuationToken)
-        {
-            var wrapper = query.Provider as DocumentDbTranslatingReliableQueryProvider;
-            if (wrapper == null)
-            {
-                throw new InvalidOperationException(QueryNotInterceptedMessage);
-            }
-
-            return await wrapper.GetNextPageAsync<T>(continuationToken);
-        }
-
-        /// <summary>
-        /// Gets the next page of query results
-        /// </summary>
-        /// <typeparam name="T">Returned type</typeparam>
-        /// <param name="query">Instance of IQueryable to operate on</param>
         /// <returns>The next page of results</returns>
         public static DocumentsPage<T> GetNextPage<T>(this IQueryable<T> query)
         {
@@ -97,7 +67,7 @@ namespace Microsoft.Azure.Documents
                 throw new InvalidOperationException(QueryNotInterceptedMessage);
             }
 
-            return await wrapper.GetNextPageAsync<T>();
+            return await wrapper.GetNextPageAsync<T>(query.Expression);
         }
     }
 }
