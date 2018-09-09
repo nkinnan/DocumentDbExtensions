@@ -273,6 +273,9 @@ obj
 /bin/
 bin/
 /bin
+bin
+*.dll
+
 
 #ignore .user files
 *.user
