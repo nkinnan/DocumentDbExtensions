@@ -270,12 +270,7 @@ nuget.exe
 obj
 
 #ignore bin directories
-/bin/
-bin/
-/bin
 bin
-*.dll
-
 
 #ignore .user files
 *.user
