@@ -48,9 +48,9 @@ namespace ExampleODataFromDocumentDb
 
             var client = await DocumentDB.GetDocumentClient(connectionString, databaseName, collectionName);
 
-            // update the sproc
-            await DocumentDbExtensions.ExecuteResultWithRetryAsync(() =>
-                client.UpsertTriggerAsync(collectionLink, DocumentDB.maintainHistoryAndTimestampsTrigger));
+            ////// update the sproc
+            ////await DocumentDbExtensions.ExecuteResultWithRetryAsync(() =>
+            ////    client.UpsertTriggerAsync(collectionLink, DocumentDB.maintainHistoryAndTimestampsTrigger));
         }
 
         /// <summary>
@@ -59,18 +59,15 @@ namespace ExampleODataFromDocumentDb
         /// <param name="config"></param>
         private static void RegisterDocumentDbOData(HttpConfiguration config)
         {
-            ////// don't require to prefix namespace on method/function invoke in the URL, this just makes your URLs easier to type/read
-            ////config.EnableUnqualifiedNameCall(true);
+            // don't require to prefix namespace on method/function invoke in the URL, this just makes your URLs easier to type/read
+            config.EnableUnqualifiedNameCall(true);
 
-            ////// don't require to prefix namespace on enums in the URL, this just makes your URLs easier to type/read
-            ////config.EnableEnumPrefixFree(true);
+            // don't require to prefix namespace on enums in the URL, this just makes your URLs easier to type/read
+            config.EnableEnumPrefixFree(true);
 
             // it is not uncommon to have a nullable collection as part of your document, OData spec says this is not valid and all collections should be empty but never null,
             // fortunately there is an option to enable OData to ignore null collections on serialization instead of throwing an error
             config.SetSerializeNullDynamicProperty(false);
-
-            // backwards compat thing
-            config.Count().Filter().OrderBy().Expand().Select().MaxTop(null); 
 
             // setup up OData entities, functions, and actions
             ODataModelBuilder diagTrackBuilder = new ODataConventionModelBuilder();

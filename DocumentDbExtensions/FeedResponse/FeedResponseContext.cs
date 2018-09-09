@@ -13,6 +13,10 @@ namespace Microsoft.Azure.Documents
     public class FeedResponseContext
     {
         private Stopwatch sw = new Stopwatch();
+
+        /// <summary>
+        /// Constructor
+        /// </summary>
         public FeedResponseContext()
         {
             sw.Start();
@@ -22,19 +26,25 @@ namespace Microsoft.Azure.Documents
         /// User may record their own context here, the library will not touch this field.
         /// </summary>
         public object UserContext { get; set; }
-        //
-        // Summary:
-        //     Gets the total number of items returned in all responses so far for this feed.
-        public int TotalCount { get; internal set; } 
-        //
-        // Summary:
-        //     Gets the request charge for this request.
+
+        /// <summary>
+        /// Gets the total number of items returned in all responses so far for this feed.
+        /// </summary>
+        public int TotalCount { get; internal set; }
+
+        /// <summary>
+        /// Gets the request charge for this request.
+        /// </summary>
         public double TotalRequestCharge { get; internal set; }
 
-        // Total size of all responses
+        /// <summary>
+        /// Total size of all responses
+        /// </summary>
         public int TotalResultsJsonStringLength { get; internal set; }
 
-        // Total time taken so far
+        /// <summary>
+        /// Total time taken so far
+        /// </summary>
         public TimeSpan TotalExecutionTime { get { return sw.Elapsed; } }
 
         internal void StopTiming()

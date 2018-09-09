@@ -28,10 +28,6 @@ namespace Microsoft.Azure.Documents
         private int maxRetries;
         private ShouldRetry shouldRetry;
 
-        DocumentClient pagingClient;
-        Uri pagingCollectionUri;
-        FeedOptions pagingFeedOptions;
-
         Object pagingQuery;
 
         private const string AlreadyExecutedNowPagingMessage = "This query has already been executed and is in paging mode, call GetNextPage() instead.";
@@ -63,7 +59,6 @@ namespace Microsoft.Azure.Documents
         /// <param name="queryExecutionHandler"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="feedResponseHandler"></param>
-        /// <param name="resourceResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>

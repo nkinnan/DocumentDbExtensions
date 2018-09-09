@@ -22,6 +22,7 @@ namespace Microsoft.Azure.Documents
     /// If your custom ShouldRetry logic can understand the response but it is not retriable, you should throw DocumentDbNonRetriableResponse or DocumentDbConflictResponse which is a special case of NonRetriable.
     /// If you throw any other exception type, that exception will be wrapped in DocumentDbRetryHandlerError.
     /// </summary>
+    /// <param name="context">This instance will be constant across all invocations for a particular query.</param>
     /// <param name="exception">The DocumentDB client exception to interpret and decide if you want to retry.</param>
     /// <returns>
     /// NULL for "don't retry" in which case a DocumentDbRetriesExceeded exception will be thrown, wrapping the original exception,
@@ -33,6 +34,7 @@ namespace Microsoft.Azure.Documents
     /// When intercepting or paging a query, this handler will be called before execution with the full Linq expression / DocumentDB SQL 
     /// expression that is about to be executed.
     /// </summary>
+    /// <param name="context">This instance will be constant across all invocations for a particular query.</param>
     /// <param name="query"></param>
     public delegate void QueryExecutionHandler(FeedResponseContext context, string query);
 
@@ -49,6 +51,7 @@ namespace Microsoft.Azure.Documents
     /// If you return true, the exception will be re-thrown from its original context, and if you return false then a partial result 
     /// set will be returned.
     /// </summary>
+    /// <param name="context">This instance will be constant across all invocations for a particular query.</param>
     /// <param name="exception"></param>
     /// <returns>
     /// Whether the exception was handled.  If false, the original exception will be rethrown from its original context.  If true, the exception 
@@ -62,7 +65,7 @@ namespace Microsoft.Azure.Documents
     /// each DocumentDB FeedResponse as it comes through "behind the scenes".  Things like resource usage for example may be useful 
     /// to log.
     /// </summary>
-    /// <param name="context"></param>
+    /// <param name="context">This instance will be constant across all invocations for a particular query.</param>
     /// <param name="type"></param>
     /// <param name="feedResponse"></param>
     public delegate void FeedResponseHandler(FeedResponseContext context, FeedResponseType type, IFeedResponse feedResponse);
@@ -199,6 +202,7 @@ namespace Microsoft.Azure.Documents
         /// 
         /// This implementation does nothing and throws away the query string.
         /// </summary>
+        /// <param name="context">This instance will be constant across all invocations for a particular query.</param>
         /// <param name="query"></param>
         /// <returns></returns>
         public static void DefaultQueryExecutionHandlerImplementation(FeedResponseContext context, string query)
@@ -211,6 +215,7 @@ namespace Microsoft.Azure.Documents
         /// 
         /// This implementation will cause the caller to re-throw the exception from its original context which will be propagated back out to the code which is enumerating the results.
         /// </summary>
+        /// <param name="context">This instance will be constant across all invocations for a particular query.</param>
         /// <param name="exception"></param>
         /// <returns></returns>
         public static bool DefaultEnumerationExceptionHandlerImplementation(FeedResponseContext context, Exception exception)
@@ -308,7 +313,6 @@ namespace Microsoft.Azure.Documents
         /// <param name="queryExecutionHandler"></param>
         /// <param name="enumerationExceptionHandler"></param>
         /// <param name="feedResponseHandler"></param>
-        /// <param name="resourceResponseHandler"></param>
         /// <param name="maxRetries"></param>
         /// <param name="maxTime"></param>
         /// <param name="shouldRetry"></param>
